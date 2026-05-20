@@ -1,0 +1,633 @@
+/* ── Layout ──────────────────────────────────────────── */
+.screen-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100svh;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.lobby-card {
+  max-width: 520px;
+}
+
+/* ── Nick form ───────────────────────────────────────── */
+.subtitle {
+  color: var(--text);
+  margin-bottom: 28px;
+}
+
+.nick-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nick-input {
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--text-h);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.nick-input:focus {
+  border-color: var(--accent);
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+.btn-primary {
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--accent-bg);
+}
+
+/* ── Error ───────────────────────────────────────────── */
+.error-msg {
+  margin-top: 12px;
+  color: #e05252;
+  font-size: 14px;
+}
+
+/* ── Phase badge ─────────────────────────────────────── */
+.phase-badge {
+  display: inline-block;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.phase-badge.idle {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+}
+
+.phase-badge.in-game {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  .phase-badge.in-game {
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.1);
+  }
+}
+
+/* ── Player lists ────────────────────────────────────── */
+.lobby-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+  margin-bottom: 24px;
+}
+
+.player-list h3 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+
+.player-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.player-list li {
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--code-bg);
+  color: var(--text-h);
+  border: 1px solid var(--border);
+}
+
+.player-list li.me {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.empty-list {
+  font-size: 14px;
+  color: var(--text);
+  font-style: italic;
+}
+
+.player-list.dimmed li {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* ── Lobby actions ───────────────────────────────────── */
+.lobby-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.spectator-note {
+  font-size: 14px;
+  color: var(--text);
+  font-style: italic;
+}
+
+/* ── Footer nick ─────────────────────────────────────── */
+.my-nick-label {
+  font-size: 13px;
+  color: var(--text);
+  margin-top: 8px;
+}
+
+/* ════════════════════════════════════════════════════════
+   TABLE LAYOUT
+   ════════════════════════════════════════════════════════ */
+
+.table-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  overflow: hidden;
+  background: #1a4731;
+}
+
+/* ── Opponents ───────────────────────────────────────── */
+.opponents-area {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px 12px;
+  min-height: 140px;
+}
+
+.table-hint {
+  color: rgba(255,255,255,0.4);
+  font-size: 14px;
+  align-self: center;
+}
+
+.opponent-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.opponent-seat.current-turn {
+  filter: drop-shadow(0 0 8px gold);
+}
+
+.opponent-backs {
+  display: flex;
+  align-items: center;
+  position: relative;
+  min-width: 48px;
+  min-height: 68px;
+}
+
+.opponent-back-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hidden-count,
+.no-cards {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  margin-left: 6px;
+}
+
+.opponent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.opponent-card-count {
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  margin: 0;
+}
+
+/* ── Felt center ─────────────────────────────────────── */
+.table-felt {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 2px solid rgba(255,255,255,0.08);
+  border-bottom: 2px solid rgba(255,255,255,0.08);
+  position: relative;
+}
+
+.table-felt::before {
+  content: '';
+  position: absolute;
+  inset: 12px 48px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.table-felt-label {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.12);
+  user-select: none;
+}
+
+/* ── Player area ─────────────────────────────────────── */
+.player-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 20px;
+  background: rgba(0,0,0,0.2);
+}
+
+.player-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.player-card-count {
+  font-weight: 400;
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+}
+
+.empty-hand {
+  color: rgba(255,255,255,0.4);
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* ── Hand ────────────────────────────────────────────── */
+.hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+/* ════════════════════════════════════════════════════════
+   CARD TILE
+   ════════════════════════════════════════════════════════ */
+
+.card-tile {
+  width: 64px;
+  height: 92px;
+  border-radius: 8px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  position: relative;
+  flex-shrink: 0;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.card-tile.clickable {
+  cursor: pointer;
+}
+
+.card-tile.clickable:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.35);
+}
+
+.card-tile.selected {
+  transform: translateY(-12px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+  border-color: gold;
+  outline: 2px solid gold;
+}
+
+.card-tile.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Card back ───────────────────────────────────────── */
+.card-back {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #1a3a6b 0px,
+      #1a3a6b 4px,
+      #1e4585 4px,
+      #1e4585 8px
+    );
+  border-color: #2a4a80;
+}
+
+/* ── Card corners ────────────────────────────────────── */
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.card-corner.top-left {
+  top: 4px;
+  left: 5px;
+}
+
+.card-corner.bottom-right {
+  bottom: 4px;
+  right: 5px;
+  transform: rotate(180deg);
+}
+
+.card-rank {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.card-suit-small {
+  font-size: 10px;
+}
+
+.card-center-suit {
+  font-size: 26px;
+  line-height: 1;
+}
+
+/* ── Suit colors ─────────────────────────────────────── */
+.suit-black { color: #111; }
+.suit-red   { color: #cc2222; }
+.suit-joker { color: #7c3aed; }
+
+/* ── Table cards ─────────────────────────────────────── */
+.table-cards-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: absolute;
+}
+
+.table-card-slot.clickable {
+  cursor: pointer;
+}
+
+.table-card-slot.clickable:hover .card-tile {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+  outline: 2px solid #fbbf24;
+}
+
+/* ── Turn indicator ──────────────────────────────────── */
+.turn-indicator {
+  position: absolute;
+  bottom: 8px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ── My turn highlight ───────────────────────────────── */
+.player-label.my-turn {
+  color: gold;
+}
+
+/* ── Action buttons ──────────────────────────────────── */
+.player-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-buttons .btn {
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  font-weight: 600;
+}
+
+.action-buttons .btn:active { transform: scale(0.96); }
+
+.action-buttons .btn-primary {
+  background: #16a34a;
+  color: #fff;
+}
+
+.action-buttons .btn-primary:hover { opacity: 0.88; }
+
+.action-buttons .btn-secondary {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+.action-buttons .btn-secondary:hover { background: rgba(255,255,255,0.25); }
+
+.action-buttons .btn-danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.action-buttons .btn-danger:hover { opacity: 0.88; }
+
+.action-hint {
+  font-size: 13px;
+  color: #fbbf24;
+  font-style: italic;
+}
+
+/* ── Game error toast ────────────────────────────────── */
+.game-error-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  z-index: 50;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── Standing badge ──────────────────────────────────── */
+.standing-badge {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.55);
+}
+
+/* ── Showdown overlay ────────────────────────────────── */
+.showdown-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.showdown-box {
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 32px 40px;
+  min-width: 320px;
+  max-width: 90vw;
+  color: #fff;
+  text-align: center;
+}
+
+.showdown-box h2 {
+  margin: 0 0 20px;
+  font-size: 24px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: gold;
+}
+
+.showdown-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.showdown-list li {
+  font-size: 15px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+}
+
+.showdown-list li.winner {
+  background: rgba(250,204,21,0.15);
+  border: 1px solid rgba(250,204,21,0.4);
+  color: gold;
+  font-weight: 700;
+}
+
+.showdown-table-label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.showdown-table-cards {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.showdown-new-game {
+  margin-top: 24px;
+  width: 100%;
+  font-size: 16px;
+  padding: 12px;
+}
