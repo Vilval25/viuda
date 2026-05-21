@@ -41,9 +41,13 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def health_check() -> dict:
-    """Plain HTTP endpoint so Render's health checks see the service is up."""
+    """Plain HTTP endpoint for health checks / keep-alive pings.
+
+    Accepts HEAD as well as GET so uptime monitors (UptimeRobot sends HEAD
+    by default) don't get a 405.
+    """
     return {"status": "ok", "service": "viuda-backend"}
 
 # Turn timer task: keyed by game id so we can cancel it when the turn changes
