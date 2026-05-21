@@ -551,19 +551,21 @@
   box-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
 }
 
-/* ── Turn indicator ──────────────────────────────────── */
-.turn-indicator {
-  position: absolute;
-  bottom: 8px;
-  font-size: 13px;
-  color: rgba(255,255,255,0.75);
-  margin: 0;
-  font-weight: 500;
+/* ── My turn highlight ───────────────────────────────── */
+/* When it's the local player's turn, the whole hand area glows amber
+   — a warm accent that stands out against the blue card backs. */
+.player-area.my-turn-area {
+  box-shadow: inset 0 3px 0 0 #fbbf24, 0 -6px 18px rgba(251, 191, 36, 0.35);
 }
 
-/* ── My turn highlight ───────────────────────────────── */
-.player-label.my-turn {
-  color: gold;
+.my-turn-banner {
+  margin: 0;
+  align-self: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fbbf24;
 }
 
 /* ── Action buttons ──────────────────────────────────── */
@@ -1005,30 +1007,6 @@
   z-index: 1;
 }
 
-/* Turn indicator inside felt */
-.round-table-felt .turn-indicator {
-  position: absolute;
-  bottom: 12%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-  background: #fbbf24;
-  padding: 5px 14px;
-  border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.45);
-  white-space: nowrap;
-  z-index: 3;
-  margin: 0;
-}
-
-/* When it's the local player's turn, use a green pill */
-.round-table-felt .turn-indicator.my-turn {
-  background: #22c55e;
-  color: #052e16;
-}
-
 /* Wrapper that positions an opponent around the table */
 .round-seat-wrapper {
   position: absolute;
@@ -1059,8 +1037,8 @@
 }
 
 .opponent-seat-r.current-turn {
-  border-color: gold;
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
 }
 
 .opponent-seat-r.eliminated {
@@ -1079,8 +1057,17 @@
   max-width: 70px;
 }
 
-.rs-turn-dot {
-  color: gold;
+/* "Su turno" label above an opponent's card backs.
+   Sky-blue tone — reads as active and harmonizes with the blue cards. */
+.rs-turn-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #0c4a6e;
+  background: #38bdf8;
+  padding: 1px 7px;
+  border-radius: 999px;
 }
 
 .rs-backs {

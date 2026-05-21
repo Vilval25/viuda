@@ -28,10 +28,10 @@ function OpponentSeat({ player, isCurrentTurn, session }) {
 
   return (
     <div className={`round-seat opponent-seat-r ${isCurrentTurn ? 'current-turn' : ''} ${lives === 0 ? 'eliminated' : ''}`}>
-      <p className="rs-name">
-        {player.nickname}
-        {isCurrentTurn && <span className="rs-turn-dot"> ●</span>}
-      </p>
+      <p className="rs-name">{player.nickname}</p>
+
+      {/* Turn label sits right above this player's cards */}
+      {isCurrentTurn && <span className="rs-turn-label">Su turno</span>}
 
       {/* Card backs */}
       <div className="rs-backs">
@@ -198,12 +198,6 @@ export default function Table({
             )}
           </div>
 
-          {/* Turn indicator */}
-          {gameState?.phase === 'playing' && (
-            <p className={`turn-indicator ${isMyTurn ? 'my-turn' : ''}`}>
-              {isMyTurn ? '¡Es tu turno!' : `Turno de ${currentPlayer}`}
-            </p>
-          )}
         </div>
 
         {/* Opponent seats positioned around the table */}
@@ -229,11 +223,13 @@ export default function Table({
       </div>
 
       {/* ── My area (always bottom) ──────────────────────── */}
-      <div className="player-area">
+      <div className={`player-area ${isInGame && canAct ? 'my-turn-area' : ''}`}>
         {isInGame ? (
           <>
+            {canAct && <p className="my-turn-banner">Tu turno</p>}
+
             <div className="player-header">
-              <p className={`player-label ${isMyTurn || canAct ? 'my-turn' : ''}`}>
+              <p className="player-label">
                 {myNick}
                 {myData?.is_standing && <span className="standing-badge"> (plantado)</span>}
               </p>
