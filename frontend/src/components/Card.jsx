@@ -1,5 +1,5 @@
 const SUIT_SYMBOL = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣', joker_black: '★', joker_red: '★' }
-const SUIT_COLOR  = { spades: 'black', clubs: 'black', hearts: 'red', diamonds: 'red', joker_black: 'joker', joker_red: 'joker' }
+const SUIT_COLOR  = { spades: 'black', clubs: 'black', hearts: 'red', diamonds: 'red', joker_black: 'black', joker_red: 'red' }
 
 export default function Card({ card, onClick, selected = false, disabled = false }) {
   const symbol = SUIT_SYMBOL[card.suit] ?? '?'

@@ -6,6 +6,11 @@ backend/venv/
 backend/.venv/
 .env
 
+# Google service account credentials — never commit
+*credentials*.json
+*service-account*.json
+backend/*.json
+
 # Node
 frontend/node_modules/
 frontend/dist/

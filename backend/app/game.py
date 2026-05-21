@@ -175,6 +175,8 @@ class Game:
         }
         self._table: list[Card] = []
         self._table_face_up = False
+        # ids of table cards changed by the most recent action (highlight)
+        self._last_swapped_ids: list[str] = []
 
         self._turn_number = 0                # absolute turn index
         self._first_stand_turn: int | None = None
@@ -184,20 +186,30 @@ class Game:
 
     # ── Phase 0: order determination ──────────────────────────────
 
-    def determine_order(self) -> None:
-        """Deal 1 card (no jokers) to each player and compute play order."""
+    def determine_order(self, first_player: str | None = None) -> None:
+        """Deal 1 card (no jokers) to each player and compute play order.
+
+        If `first_player` is given (next round), that player goes first and
+        the rest follow in the clockwise order established this round.
+        """
         deck = shuffle_deck(build_deck_no_jokers())
         order_cards: dict[str, Card] = {}
         for i, nick in enumerate(self._all_players):
             order_cards[nick] = deck[i]
         self.order_cards = order_cards
 
-        # Sort descending by high value; ties broken randomly
-        self._order = sorted(
-            self._all_players,
-            key=lambda n: (order_cards[n].high_value, random.random()),
-            reverse=True,
-        )
+        if first_player and first_player in self._all_players:
+            # Rotate the player list so first_player is at index 0
+            base = list(self._all_players)
+            idx  = base.index(first_player)
+            self._order = base[idx:] + base[:idx]
+        else:
+            # Sort descending by high value; ties broken randomly
+            self._order = sorted(
+                self._all_players,
+                key=lambda n: (order_cards[n].high_value, random.random()),
+                reverse=True,
+            )
 
     # ── Phase 1: dealing ──────────────────────────────────────────
 
@@ -267,6 +279,7 @@ class Game:
         s.hand, self._table = self._table[:], s.hand[:]
         self._table_face_up  = True
         s.consecutive_passes = 0
+        self._last_swapped_ids = [c.id for c in self._table]
         self._advance()
         return True, ""
 
@@ -290,6 +303,7 @@ class Game:
         s.hand     = [table_card if c.id == hand_card_id  else c for c in s.hand]
         self._table = [hand_card  if c.id == table_card_id else c for c in self._table]
         s.consecutive_passes = 0
+        self._last_swapped_ids = [hand_card.id]
         self._advance()
         return True, ""
 
@@ -300,6 +314,7 @@ class Game:
 
         s = self._states[nickname]
         s.consecutive_passes += 1
+        self._last_swapped_ids = []
 
         if s.consecutive_passes >= 2:
             # Auto-stand after 2 consecutive passes
@@ -318,6 +333,7 @@ class Game:
         s = self._states[nickname]
         s.is_standing        = True
         s.consecutive_passes = 0
+        self._last_swapped_ids = []
 
         if self._first_stand_turn is None:
             self._first_stand_turn = self._turn_number
@@ -381,6 +397,33 @@ class Game:
         best_tb = max(results[n]["tiebreakers"] for n in top)
         return [n for n in top if results[n]["tiebreakers"] == best_tb]
 
+    def evaluate_losers(self, alive_count: int) -> list[str]:
+        """
+        Return the players who lose a life this round, based on how many
+        players are currently alive in the session.
+
+          2–3 alive → 1 loser  (worst hand)
+          4–5 alive → 2 losers
+          6–7 alive → 3 losers
+          8–9 alive → 4 losers
+        """
+        if alive_count <= 3:
+            loser_count = 1
+        elif alive_count <= 5:
+            loser_count = 2
+        elif alive_count <= 7:
+            loser_count = 3
+        else:
+            loser_count = 4
+
+        results = self.evaluate_all()
+        # Sort ascending: worst hand first
+        ranked = sorted(
+            results.keys(),
+            key=lambda n: (results[n]["rank_value"], results[n]["tiebreakers"]),
+        )
+        return ranked[:loser_count]
+
     # ── Serialization ─────────────────────────────────────────────
 
     def public_state(self) -> dict:
@@ -402,6 +445,7 @@ class Game:
                 "face_up": self._table_face_up,
                 "count":   len(self._table),
                 "cards":   [c.to_dict() for c in self._table] if self._table_face_up else None,
+                "last_swapped": self._last_swapped_ids,
             },
         }
 
