@@ -67,12 +67,12 @@ de partidas se guarda en Google Sheets (ver `backend/README.md`).
 ### 2. Frontend en Vercel
 
 1. En Vercel: **Add New → Project**, y selecciona este repositorio.
-   Vercel detecta el archivo `vercel.json` (framework Vite, build del subdirectorio
-   `frontend/`).
-2. En **Settings → Environment Variables**, añade:
+2. En **Settings → Build and Deployment**, pon **Root Directory = `frontend`**.
+   Vercel usará el `frontend/vercel.json` (framework Vite).
+3. En **Settings → Environment Variables**, añade:
    - `VITE_WS_URL` = `wss://viuda-backend.onrender.com/ws`
      (usa la URL de Render del paso 1; **`wss`**, no `ws`, porque va sobre HTTPS).
-3. Despliega. Vercel te da una URL como `https://viuda.vercel.app`.
+4. Despliega. Vercel te da una URL como `https://viuda.vercel.app`.
 
 ### 3. Cerrar el círculo
 
