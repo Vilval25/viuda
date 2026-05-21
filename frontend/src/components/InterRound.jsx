@@ -61,12 +61,24 @@ export default function InterRound({
   }
 
   const myOffers     = life_offers.filter(o => o.from_nick === myNick)
-  const othersOffers = life_offers.filter(o => {
-    if (o.from_nick === myNick) return false
+  // All other offers are visible to everyone (including directed ones);
+  // whether the local player can *accept* is decided per-offer below.
+  const othersOffers = life_offers.filter(o => o.from_nick !== myNick)
+
+  // Can the local player accept this offer?
+  function canAcceptOffer(o) {
+    if (!isParticipant) return false
     const directed = o.offer_type === 'direct_sell' || o.offer_type === 'direct_buy'
+    // Directed offers are only acceptable by their target.
     if (directed && o.target_nick !== myNick) return false
-    return true
-  })
+    const isSellOffer = o.offer_type === 'public_sell' || o.offer_type === 'direct_sell'
+    if (isSellOffer) {
+      // Offerer sells -> I buy: I must not exceed the life cap.
+      return myLives + o.amount <= max_lives
+    }
+    // Buy offer: offerer buys -> I sell: I must have enough lives.
+    return myLives >= o.amount
+  }
 
   return (
     <div className="inter-round-layout">
@@ -205,7 +217,7 @@ export default function InterRound({
             <p className="ir-hint">Mis ofertas activas:</p>
             {myOffers.map(o => (
               <div key={o.id} className="offer-row my-offer">
-                <span className="offer-label">{offerLabel(o)}</span>
+                <span className="offer-label">{offerLabel(o, myNick)}</span>
                 <button className="btn-danger btn-sm" onClick={() => cancelOffer(o.id)}>Cancelar</button>
               </div>
             ))}
@@ -218,8 +230,8 @@ export default function InterRound({
             <p className="ir-hint">Ofertas disponibles:</p>
             {othersOffers.map(o => (
               <div key={o.id} className="offer-row">
-                <span className="offer-label">{offerLabel(o)}</span>
-                {isParticipant && (
+                <span className="offer-label">{offerLabel(o, myNick)}</span>
+                {canAcceptOffer(o) && (
                   <button className="btn-primary btn-sm" onClick={() => acceptOffer(o.id)}>Aceptar</button>
                 )}
               </div>
@@ -238,28 +250,37 @@ export default function InterRound({
         <p className="ir-hint">
           Listos: {inter_ready.filter(n => alive.includes(n)).length} / {alive.length}
         </p>
-        <button
-          className={amReady ? 'btn-secondary' : 'btn-primary'}
-          onClick={amReady ? onInterUnready : onInterReady}
-          style={{ width: '100%', padding: '10px' }}
-        >
-          {amReady ? '✓ Listo (cancelar)' : 'Listo para continuar'}
-        </button>
+        {isAlive ? (
+          <button
+            className={amReady ? 'btn-secondary' : 'btn-primary'}
+            onClick={amReady ? onInterUnready : onInterReady}
+            style={{ width: '100%', padding: '10px' }}
+          >
+            {amReady ? '✓ Listo (cancelar)' : 'Listo para continuar'}
+          </button>
+        ) : (
+          <p className="ir-hint">
+            {isParticipant
+              ? 'Estás eliminado: esperando a los jugadores con vidas.'
+              : 'Esperando a que los jugadores estén listos.'}
+          </p>
+        )}
       </div>
     </div>
   )
 }
 
-function offerLabel(o) {
+function offerLabel(o, myNick) {
   const price  = Number(o.price).toFixed(2)
   const amount = o.amount === 1 ? '1 vida' : `${o.amount} vidas`
+  const who    = (n) => (n === myNick ? 'tú' : n)
   if (o.offer_type === 'public_sell')
-    return `${o.from_nick} vende ${amount} → S/. ${price}`
+    return `${who(o.from_nick)} vende ${amount} → S/. ${price}`
   if (o.offer_type === 'public_buy')
-    return `${o.from_nick} compra ${amount} → S/. ${price}`
+    return `${who(o.from_nick)} compra ${amount} → S/. ${price}`
   if (o.offer_type === 'direct_sell')
-    return `${o.from_nick} vende ${amount} a ${o.target_nick} → S/. ${price} (dirigida)`
+    return `${who(o.from_nick)} vende ${amount} a ${who(o.target_nick)} → S/. ${price}`
   if (o.offer_type === 'direct_buy')
-    return `${o.from_nick} compra ${amount} a ${o.target_nick} → S/. ${price} (dirigida)`
-  return `${o.from_nick} → ${o.target_nick}: ${amount} por S/. ${price}`
+    return `${who(o.from_nick)} compra ${amount} a ${who(o.target_nick)} → S/. ${price}`
+  return `${who(o.from_nick)} → ${who(o.target_nick)}: ${amount} por S/. ${price}`
 }

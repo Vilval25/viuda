@@ -351,12 +351,17 @@ class GameRoom:
     def begin_next_round(self, first_player_hint: Optional[str] = None) -> None:
         if self.session:
             self.session.round_number += 1
-            eliminated = [n for n, v in self.session.lives.items() if v <= 0]
-            for nick in eliminated:
+            # Recompute roles from current lives, so trades during the
+            # inter-round take effect: a player who sold their last life
+            # becomes a spectator, and an eliminated player who bought a
+            # life back returns to playing.
+            for nick, lives in self.session.lives.items():
                 conn = self._connections.get(nick)
-                if conn:
-                    conn.role = Role.SPECTATOR
-                self._disconnected.discard(nick)
+                if conn is None:
+                    continue
+                conn.role = Role.PLAYING if lives > 0 else Role.SPECTATOR
+                if lives <= 0:
+                    self._disconnected.discard(nick)
         self.phase = Phase.IN_GAME
         self.game  = None
 

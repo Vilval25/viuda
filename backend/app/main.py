@@ -409,13 +409,28 @@ async def _proceed_next_round() -> None:
                     first_player = candidate
                     break
 
+    # Updates roles from current lives: players who sold their last life
+    # become spectators; revived players return to playing.
     room.begin_next_round()
 
-    alive_connected = [
-        n for n in alive
-        if n in {c.nickname for c in room._connections.values() if c.role == Role.PLAYING}
-    ]
-    g = Game(alive_connected)
+    # The next round is played by everyone who is alive AND still connected.
+    # Source of truth is session.lives (not stale roles).
+    connected = set(room._connections.keys())
+    next_round_players = [n for n in alive if n in connected]
+
+    if len(next_round_players) <= 1:
+        # Not enough connected survivors to continue — end the session.
+        winner = next_round_players[0] if next_round_players else None
+        if winner:
+            session.award_winner(winner)
+        _finish_session(winner=winner)
+        await room.broadcast_room_state()
+        return
+
+    if first_player not in next_round_players:
+        first_player = None
+
+    g = Game(next_round_players)
     g.determine_order(first_player=first_player)
     g.deal()
     room.game = g

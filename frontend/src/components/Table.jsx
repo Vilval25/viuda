@@ -88,6 +88,8 @@ export default function Table({
 
   const myData  = players.find(p => p.nickname === myNick)
   const myLives = session?.lives?.[myNick] ?? null
+  // A spectator is not among the round's players.
+  const isInGame = myData !== undefined
 
   const canAct     = validActions.length > 0
   const canSwapAll = validActions.includes('swap_all')
@@ -198,7 +200,7 @@ export default function Table({
 
           {/* Turn indicator */}
           {gameState?.phase === 'playing' && (
-            <p className="turn-indicator">
+            <p className={`turn-indicator ${isMyTurn ? 'my-turn' : ''}`}>
               {isMyTurn ? '¡Es tu turno!' : `Turno de ${currentPlayer}`}
             </p>
           )}
@@ -228,37 +230,45 @@ export default function Table({
 
       {/* ── My area (always bottom) ──────────────────────── */}
       <div className="player-area">
-        <div className="player-header">
-          <p className={`player-label ${isMyTurn || canAct ? 'my-turn' : ''}`}>
-            {myNick}
-            {myData?.is_standing && <span className="standing-badge"> (plantado)</span>}
-          </p>
+        {isInGame ? (
+          <>
+            <div className="player-header">
+              <p className={`player-label ${isMyTurn || canAct ? 'my-turn' : ''}`}>
+                {myNick}
+                {myData?.is_standing && <span className="standing-badge"> (plantado)</span>}
+              </p>
 
-          {canAct && (
-            <div className="action-buttons">
-              {canSwapAll && (
-                <button className="btn btn-primary" onClick={swapAll}>Cambiar mano</button>
-              )}
-              {canSwapOne && (
-                <span className="action-hint">
-                  {selectedHandCard ? 'Selecciona carta de la mesa' : 'Selecciona carta de tu mano'}
-                </span>
-              )}
-              {canPass && (
-                <button className="btn btn-secondary" onClick={passTurn}>Pasar</button>
-              )}
-              {canStand && (
-                <button className="btn btn-danger" onClick={stand}>Plantarse</button>
+              {canAct && (
+                <div className="action-buttons">
+                  {canSwapAll && (
+                    <button className="btn btn-primary" onClick={swapAll}>Cambiar mano</button>
+                  )}
+                  {canSwapOne && (
+                    <span className="action-hint">
+                      {selectedHandCard ? 'Selecciona carta de la mesa' : 'Selecciona carta de tu mano'}
+                    </span>
+                  )}
+                  {canPass && (
+                    <button className="btn btn-secondary" onClick={passTurn}>Pasar</button>
+                  )}
+                  {canStand && (
+                    <button className="btn btn-danger" onClick={stand}>Plantarse</button>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        <Hand
-          cards={hand}
-          onCardClick={canSwapOne ? handleHandCardClick : undefined}
-          selectedId={selectedHandCard?.id}
-        />
+            <Hand
+              cards={hand}
+              onCardClick={canSwapOne ? handleHandCardClick : undefined}
+              selectedId={selectedHandCard?.id}
+            />
+          </>
+        ) : (
+          <p className="spectator-area-label">
+            👁 Estás como espectador — observando la partida
+          </p>
+        )}
       </div>
 
     </div>
