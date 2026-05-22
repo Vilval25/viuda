@@ -89,6 +89,12 @@ class CancelOfferMsg(BaseModel):
     type:     Literal["cancel_offer"]
     offer_id: str
 
+class ReactOfferMsg(BaseModel):
+    """Toggle the sender's emoji reaction on an offer."""
+    type:     Literal["react_offer"]
+    offer_id: str
+    emoji:    str
+
 class ProposeFinalDealMsg(BaseModel):
     type:     Literal["propose_final_deal"]
     my_share: float
@@ -108,7 +114,7 @@ IncomingMessage = Annotated[
         SwapAllMsg, SwapOneMsg, PassTurnMsg, StandMsg, NewGameMsg,
         RevealHandMsg,
         InterReadyMsg, InterUnreadyMsg,
-        LifeOfferMsg, AcceptOfferMsg, CancelOfferMsg,
+        LifeOfferMsg, AcceptOfferMsg, CancelOfferMsg, ReactOfferMsg,
         ProposeFinalDealMsg, AcceptFinalDealMsg, RejectFinalDealMsg,
     ],
     Field(discriminator="type"),
@@ -121,7 +127,7 @@ _KNOWN_TYPES = {
     "swap_all", "swap_one", "pass_turn", "stand", "new_game",
     "reveal_hand",
     "inter_ready", "inter_unready",
-    "life_offer", "accept_offer", "cancel_offer",
+    "life_offer", "accept_offer", "cancel_offer", "react_offer",
     "propose_final_deal", "accept_final_deal", "reject_final_deal",
 }
 

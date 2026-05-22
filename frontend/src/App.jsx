@@ -47,8 +47,10 @@ function App() {
         session={socket.roomState.session}
         showdownData={socket.showdownData}
         showdownTimer={socket.showdownTimer}
+        showdownTimerMax={socket.showdownTimerMax}
         onRevealHand={socket.onRevealHand}
         turnTimer={socket.turnTimer}
+        turnTimerMax={socket.turnTimerMax}
       />
     )
   }
@@ -63,6 +65,7 @@ function App() {
         postLifeOffer={socket.postLifeOffer}
         acceptOffer={socket.acceptOffer}
         cancelOffer={socket.cancelOffer}
+        reactOffer={socket.reactOffer}
         proposeFinalDeal={socket.proposeFinalDeal}
         acceptFinalDeal={socket.acceptFinalDeal}
         rejectFinalDeal={socket.rejectFinalDeal}

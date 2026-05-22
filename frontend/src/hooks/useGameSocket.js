@@ -19,13 +19,16 @@ export function useGameSocket() {
   const [validActions, setValidActions]       = useState([])
   const [selectedHandCard, setSelectedHandCard] = useState(null)
 
-  // Showdown state
+  // Showdown state. showdownTimerMax is the window's full length so the
+  // progress bar can scale (the window varies with player count).
   const [showdownData,  setShowdownData]  = useState(null)
   const [showdownTimer, setShowdownTimer] = useState(0)
+  const [showdownTimerMax, setShowdownTimerMax] = useState(8)
   const showdownIntervalRef = useRef(null)
 
   // Turn timer countdown (received from server)
   const [turnTimer, setTurnTimer] = useState(0)
+  const [turnTimerMax, setTurnTimerMax] = useState(20)
   const turnTimerIntervalRef = useRef(null)
 
   // Error auto-clear timer
@@ -135,10 +138,12 @@ export function useGameSocket() {
 
       order_result: (_msg) => {},
 
-      // 30-second turn timer from server
+      // Turn timer from server (duration may vary)
       turn_timer: (msg) => {
+        const secs = msg.seconds ?? 20
         _clearTurnTimerInterval()
-        setTurnTimer(msg.seconds ?? 30)
+        setTurnTimerMax(secs)
+        setTurnTimer(secs)
         turnTimerIntervalRef.current = setInterval(() => {
           setTurnTimer(prev => {
             if (prev <= 1) {
@@ -150,10 +155,11 @@ export function useGameSocket() {
         }, 1000)
       },
 
-      // Server signals showdown window is open (8 seconds)
+      // Server signals showdown window is open (length varies by player count)
       showdown_timer: (msg) => {
         const secs = msg.seconds ?? 8
         _clearShowdownInterval()
+        setShowdownTimerMax(secs)
         setShowdownTimer(secs)
         showdownIntervalRef.current = setInterval(() => {
           setShowdownTimer(prev => {
@@ -281,6 +287,9 @@ export function useGameSocket() {
   const cancelOffer = useCallback((offer_id) =>
     send('cancel_offer', { offer_id }), [send])
 
+  const reactOffer = useCallback((offer_id, emoji) =>
+    send('react_offer', { offer_id, emoji }), [send])
+
   const proposeFinalDeal = useCallback((my_share) =>
     send('propose_final_deal', { my_share }), [send])
 
@@ -302,15 +311,15 @@ export function useGameSocket() {
     hand, gameState, validActions,
     selectedHandCard, setSelectedHandCard,
     amReady,
-    showdownData, showdownTimer,
-    turnTimer,
+    showdownData, showdownTimer, showdownTimerMax,
+    turnTimer, turnTimerMax,
     tradeNotice,
     connect, send,
     joinGame, leaveGame, startGame, ping,
     setReady, setUnready, setConfig,
     swapAll, swapOne, passTurn, stand, newGame,
     onRevealHand,
-    postLifeOffer, acceptOffer, cancelOffer,
+    postLifeOffer, acceptOffer, cancelOffer, reactOffer,
     proposeFinalDeal, acceptFinalDeal, rejectFinalDeal,
     interReady, interUnready,
   }

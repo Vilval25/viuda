@@ -1,11 +1,12 @@
 import asyncio
 import json
 import os
+import time
 import uuid
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.room import room, Role, Phase, LifeOffer, FinalDeal
+from app.room import room, Role, Phase, LifeOffer, FinalDeal, MAX_MONEY
 from app.game import Game, GamePhase
 from app import sheets
 from app.protocol import (
@@ -15,7 +16,7 @@ from app.protocol import (
     SwapAllMsg, SwapOneMsg, PassTurnMsg, StandMsg, NewGameMsg,
     RevealHandMsg,
     InterReadyMsg, InterUnreadyMsg,
-    LifeOfferMsg, AcceptOfferMsg, CancelOfferMsg,
+    LifeOfferMsg, AcceptOfferMsg, CancelOfferMsg, ReactOfferMsg,
     ProposeFinalDealMsg, AcceptFinalDealMsg, RejectFinalDealMsg,
     PongMsg, ErrorMsg,
 )
@@ -54,6 +55,26 @@ def health_check() -> dict:
 _turn_timer_task: asyncio.Task | None = None
 _turn_timer_game_id: int | None = None   # id() of the current Game object
 
+# Seconds a player has to act on their turn before an automatic pass.
+TURN_TIMER_SECONDS = 20
+
+
+def _showdown_seconds(player_count: int) -> int:
+    """Length of the showdown reveal window, by players in the round.
+
+      2–3 players -> 6 s
+      4–5 players -> 10 s
+      6–7 players -> 13 s
+      8–9 players -> 15 s
+    """
+    if player_count <= 3:
+        return 6
+    if player_count <= 5:
+        return 10
+    if player_count <= 7:
+        return 13
+    return 15
+
 
 # ── Turn timer ─────────────────────────────────────────────────────────
 
@@ -78,9 +99,9 @@ def _cancel_active_timer() -> None:
 
 
 async def _run_turn_timer(game_id: int, player: str) -> None:
-    """Wait 30 s then auto-pass for `player` if it's still their turn."""
+    """Wait the turn time then auto-pass for `player` if it's still their turn."""
     try:
-        await asyncio.sleep(30)
+        await asyncio.sleep(TURN_TIMER_SECONDS)
     except asyncio.CancelledError:
         return
     g = room.game
@@ -112,11 +133,15 @@ def _restart_turn_timer() -> None:
 
 
 async def _broadcast_turn_timer() -> None:
-    """Broadcast the 30-second countdown start to all clients."""
+    """Broadcast the turn countdown start to all clients."""
     g = room.game
     if g is None or g.phase != GamePhase.PLAYING or g.current_player is None:
         return
-    await room.broadcast_all({"type": "turn_timer", "seconds": 30, "player": g.current_player})
+    await room.broadcast_all({
+        "type": "turn_timer",
+        "seconds": TURN_TIMER_SECONDS,
+        "player": g.current_player,
+    })
 
 
 def _cancel_turn_timer() -> None:
@@ -154,13 +179,18 @@ def _finish_session(winner: str | None = None) -> None:
     The Sheets upload runs in a worker thread so its network I/O never blocks
     the event loop, and any failure is swallowed inside sheets.append_report.
     """
+    _cancel_all_offer_expiry()
     report = room.end_session(winner=winner)
     if report is not None and sheets.is_enabled():
         asyncio.create_task(asyncio.to_thread(sheets.append_report, report))
 
 
 async def _trigger_showdown(g: Game) -> None:
-    """Start 8-second reveal window then transition to inter_round."""
+    """Start the reveal window then transition to inter_round.
+
+    The window length scales with the number of players in the round
+    (see _showdown_seconds).
+    """
     _cancel_turn_timer()
     session = room.session
     if session is None:
@@ -169,11 +199,13 @@ async def _trigger_showdown(g: Game) -> None:
     alive_count = len(session.alive_players)
     losers = g.evaluate_losers(alive_count)
     # Record losers now so handle_reveal_hand can authorize voluntary
-    # reveals during the 8-second window (before life loss is applied).
+    # reveals during the window (before life loss is applied).
     session.losers = losers
 
-    # Broadcast turn_timer message with 8s countdown
-    await room.broadcast_all({"type": "showdown_timer", "seconds": 8})
+    showdown_secs = _showdown_seconds(len(g._order))
+
+    # Broadcast showdown_timer message with the countdown
+    await room.broadcast_all({"type": "showdown_timer", "seconds": showdown_secs})
 
     # Reveal safe players' hands immediately
     safe = [p for p in g._order if p not in losers]
@@ -183,6 +215,12 @@ async def _trigger_showdown(g: Game) -> None:
         revealed[nick] = [c.to_dict() for c in hand]
 
     showdown_base = g.showdown_result()   # has evaluations, winners, table
+
+    # Record this round's winner — decides who starts the next round.
+    round_winners = showdown_base["winners"]
+    if round_winners:
+        session.record_round_winner(round_winners[0])
+
     await room.broadcast_all({
         "type":        "showdown_reveal",
         "evaluations": showdown_base["evaluations"],
@@ -192,8 +230,8 @@ async def _trigger_showdown(g: Game) -> None:
         "losers":      losers,
     })
 
-    # Wait 8 seconds; loser reveals arrive via handle_reveal_hand during this window
-    await asyncio.sleep(8)
+    # Wait out the window; loser reveals arrive via handle_reveal_hand meanwhile
+    await asyncio.sleep(showdown_secs)
 
     # Apply life losses
     room.begin_inter_round(losers)
@@ -264,7 +302,9 @@ async def handle_start_game(nickname: str, _msg: StartGameMsg, ws: WebSocket) ->
 
     room.begin_session()
     g = Game(room.playing)
-    g.determine_order()
+    g.determine_order()                       # round 1: sort by high card
+    # Freeze the clockwise seating for the whole session.
+    room.session.seat_order = list(g._order)
     g.deal()
     room.game = g
 
@@ -399,43 +439,54 @@ async def _proceed_next_round() -> None:
         await room.broadcast_room_state()
         return
 
-    # Determine first player of next round:
-    # the player clockwise-next after last round's winner
-    first_player = None
-    if session.last_round_winner and room.game:
-        order = room.game._order
-        if session.last_round_winner in order:
-            idx = order.index(session.last_round_winner)
-            # Find next alive player in clockwise order
-            for i in range(1, len(order) + 1):
-                candidate = order[(idx + i) % len(order)]
-                if candidate in alive:
-                    first_player = candidate
-                    break
-
     # Updates roles from current lives: players who sold their last life
     # become spectators; revived players return to playing.
+    _cancel_all_offer_expiry()
     room.begin_next_round()
 
-    # The next round is played by everyone who is alive AND still connected.
-    # Source of truth is session.lives (not stale roles).
+    # Build the next round's turn order from the FIXED seating.
+    # 1. Take the session-wide seat order (unchanging clockwise layout).
+    # 2. Keep only players who are alive AND still connected — eliminated
+    #    players' seats are simply skipped, never re-shuffled.
     connected = set(room._connections.keys())
-    next_round_players = [n for n in alive if n in connected]
+    alive_set = set(alive)
+    seated = [
+        n for n in session.seat_order
+        if n in alive_set and n in connected
+    ]
+    # Any alive+connected player missing from seat_order (shouldn't happen)
+    # is appended so nobody is dropped.
+    for n in alive:
+        if n in connected and n not in seated:
+            seated.append(n)
 
-    if len(next_round_players) <= 1:
+    if len(seated) <= 1:
         # Not enough connected survivors to continue — end the session.
-        winner = next_round_players[0] if next_round_players else None
+        winner = seated[0] if seated else None
         if winner:
             session.award_winner(winner)
         _finish_session(winner=winner)
         await room.broadcast_room_state()
         return
 
-    if first_player not in next_round_players:
+    # The next round starts with the player seated clockwise-next after
+    # last round's winner (skipping eliminated/absent seats).
+    order = list(seated)
+    if session.last_round_winner and session.last_round_winner in session.seat_order:
+        win_idx = session.seat_order.index(session.last_round_winner)
+        ring = session.seat_order
         first_player = None
+        for i in range(1, len(ring) + 1):
+            candidate = ring[(win_idx + i) % len(ring)]
+            if candidate in seated:
+                first_player = candidate
+                break
+        if first_player is not None:
+            start = order.index(first_player)
+            order = order[start:] + order[:start]
 
-    g = Game(next_round_players)
-    g.determine_order(first_player=first_player)
+    g = Game(order)
+    g.determine_order(explicit_order=order)
     g.deal()
     room.game = g
 
@@ -444,6 +495,44 @@ async def _proceed_next_round() -> None:
     await _broadcast_game()
     _restart_turn_timer()
     await _broadcast_turn_timer()
+
+
+# ── Offer expiry ───────────────────────────────────────────────────────
+# Each life offer auto-expires if nobody accepts it in time.
+OFFER_TTL_SECONDS = 15
+
+# offer_id -> the asyncio task that will expire it
+_offer_expiry_tasks: dict[str, asyncio.Task] = {}
+
+
+def _cancel_offer_expiry(offer_id: str) -> None:
+    """Stop the expiry timer for an offer that was accepted or cancelled."""
+    task = _offer_expiry_tasks.pop(offer_id, None)
+    if task is not None and not task.done():
+        task.cancel()
+
+
+def _cancel_all_offer_expiry() -> None:
+    """Stop every pending offer-expiry timer (e.g. when the round advances)."""
+    for task in _offer_expiry_tasks.values():
+        if not task.done():
+            task.cancel()
+    _offer_expiry_tasks.clear()
+
+
+async def _expire_offer(offer_id: str) -> None:
+    """Wait out the TTL, then remove the offer if it's still around."""
+    try:
+        await asyncio.sleep(OFFER_TTL_SECONDS)
+    except asyncio.CancelledError:
+        return
+    _offer_expiry_tasks.pop(offer_id, None)
+    session = room.session
+    if session is None or room.phase != Phase.INTER_ROUND:
+        return
+    if offer_id in session.life_offers:
+        session.remove_offer(offer_id)
+        await room.broadcast_room_state()
 
 
 async def handle_life_offer(nickname: str, msg: LifeOfferMsg, ws: WebSocket) -> None:
@@ -468,6 +557,9 @@ async def handle_life_offer(nickname: str, msg: LifeOfferMsg, ws: WebSocket) -> 
         return
     if msg.price < 0:
         await ws.send_text(ErrorMsg(message="El precio no puede ser negativo.").model_dump_json())
+        return
+    if msg.price > MAX_MONEY:
+        await ws.send_text(ErrorMsg(message=f"El precio no puede superar S/. {MAX_MONEY:.2f}.").model_dump_json())
         return
     if is_directed and not msg.target_nick:
         await ws.send_text(ErrorMsg(message="Una oferta dirigida requiere indicar el destinatario.").model_dump_json())
@@ -494,8 +586,11 @@ async def handle_life_offer(nickname: str, msg: LifeOfferMsg, ws: WebSocket) -> 
         amount=msg.amount,
         price=round(msg.price, 2),
         target_nick=msg.target_nick,
+        expires_at=time.time() + OFFER_TTL_SECONDS,
     )
     session.add_offer(offer)
+    # Auto-expire the offer if nobody accepts it within the TTL.
+    _offer_expiry_tasks[offer.id] = asyncio.create_task(_expire_offer(offer.id))
     await room.broadcast_room_state()
 
 
@@ -538,6 +633,7 @@ async def handle_accept_offer(nickname: str, msg: AcceptOfferMsg, ws: WebSocket)
         return
 
     session.remove_offer(msg.offer_id)
+    _cancel_offer_expiry(msg.offer_id)
     # Notify everyone that a life trade just happened
     await room.broadcast_all({
         "type":      "trade_notice",
@@ -563,6 +659,29 @@ async def handle_cancel_offer(nickname: str, msg: CancelOfferMsg, ws: WebSocket)
         await ws.send_text(ErrorMsg(message="No puedes cancelar esa oferta.").model_dump_json())
         return
     session.remove_offer(msg.offer_id)
+    _cancel_offer_expiry(msg.offer_id)
+    await room.broadcast_room_state()
+
+
+# Emojis players may react to offers with.
+ALLOWED_REACTIONS = {"👍", "👎", "😂", "😮", "🔥", "🤔"}
+
+
+async def handle_react_offer(nickname: str, msg: ReactOfferMsg, ws: WebSocket) -> None:
+    session = room.session
+    if session is None or room.phase != Phase.INTER_ROUND:
+        return
+    # Only players who took part in the session may react (not spectators).
+    if nickname not in session.lives:
+        await ws.send_text(ErrorMsg(message="Los espectadores no pueden reaccionar.").model_dump_json())
+        return
+    if msg.emoji not in ALLOWED_REACTIONS:
+        await ws.send_text(ErrorMsg(message="Emoji no permitido.").model_dump_json())
+        return
+    offer = session.life_offers.get(msg.offer_id)
+    if offer is None:
+        return
+    offer.toggle_reaction(msg.emoji, nickname)
     await room.broadcast_room_state()
 
 
@@ -638,6 +757,7 @@ HANDLERS: dict = {
     "life_offer":         handle_life_offer,
     "accept_offer":       handle_accept_offer,
     "cancel_offer":       handle_cancel_offer,
+    "react_offer":        handle_react_offer,
     "propose_final_deal": handle_propose_final_deal,
     "accept_final_deal":  handle_accept_final_deal,
     "reject_final_deal":  handle_reject_final_deal,

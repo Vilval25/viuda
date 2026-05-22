@@ -55,8 +55,8 @@ export default function Lobby({
               <form className="config-form" onSubmit={handleSetConfig}>
                 <input
                   className="nick-input config-input"
-                  type="number" min="0.01" step="0.01"
-                  placeholder={`Buy-in (actual: ${config.buy_in})`}
+                  type="number" min="0.01" max="1000" step="0.01"
+                  placeholder={`Buy-in (máx S/. 1000)`}
                   value={editBuyIn}
                   onChange={e => setEditBuyIn(e.target.value)}
                 />

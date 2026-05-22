@@ -75,8 +75,10 @@ export default function Table({
   // showdown state passed from hook
   showdownData = null,
   showdownTimer = 0,
+  showdownTimerMax = 8,
   onRevealHand,
   turnTimer = 0,
+  turnTimerMax = 20,
 }) {
   const players       = gameState?.players ?? []
   const currentPlayer = gameState?.current_player
@@ -97,12 +99,16 @@ export default function Table({
   const canPass    = validActions.includes('pass_turn')
   const canStand   = validActions.includes('stand')
 
-  // Build seating order: local player at index 0 (bottom), others in turn order
-  const order       = gameState?.order ?? players.map(p => p.nickname)
-  const myIndex     = order.indexOf(myNick)
+  // Visual seating uses the FIXED session seat order, not the per-round
+  // turn order — so opponents never jump from one side to the other
+  // between rounds. Only players present in this round are shown.
+  const presentNicks = new Set(players.map(p => p.nickname))
+  const seatOrder = (session?.seat_order ?? gameState?.order ?? players.map(p => p.nickname))
+    .filter(n => presentNicks.has(n))
+  const myIndex   = seatOrder.indexOf(myNick)
   const orderedNicks = myIndex >= 0
-    ? [...order.slice(myIndex), ...order.slice(0, myIndex)]
-    : [myNick, ...order.filter(n => n !== myNick)]
+    ? [...seatOrder.slice(myIndex), ...seatOrder.slice(0, myIndex)]
+    : [myNick, ...seatOrder.filter(n => n !== myNick)]
 
   const totalSeats = orderedNicks.length || 1
 
@@ -113,6 +119,8 @@ export default function Table({
 
   function handleTableCardClick(card) {
     if (!canSwapOne || !selectedHandCard) return
+    // A joker on the table can't be taken with a single-card swap.
+    if (card.rank === 'JOKER') return
     swapOne(selectedHandCard.id, card.id)
   }
 
@@ -150,7 +158,10 @@ export default function Table({
       {/* ── Turn timer bar ──────────────────────────────── */}
       {turnTimer > 0 && !showdown && (
         <div className="turn-timer-bar-wrapper">
-          <div className="turn-timer-bar-fill" style={{ width: `${(turnTimer / 30) * 100}%` }} />
+          <div
+            className="turn-timer-bar-fill"
+            style={{ width: `${(turnTimer / turnTimerMax) * 100}%` }}
+          />
         </div>
       )}
 
@@ -165,6 +176,7 @@ export default function Table({
           showdown={showdown}
           myNick={myNick}
           timer={showdownTimer}
+          timerMax={showdownTimerMax}
           onRevealHand={onRevealHand}
           session={session}
         />
@@ -178,19 +190,23 @@ export default function Table({
           {/* Table cards in center */}
           <div className="table-cards-row">
             {tableInfo?.face_up ? (
-              tableCards.map(c => (
+              tableCards.map(c => {
+                const isJoker = c.rank === 'JOKER'
+                return (
                 <div
                   key={c.id}
                   className={[
                     'table-card-slot',
-                    canSwapOne && selectedHandCard ? 'clickable' : '',
+                    canSwapOne && selectedHandCard && !isJoker ? 'clickable' : '',
                     lastSwapped.has(c.id) ? 'recently-swapped' : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => handleTableCardClick(c)}
+                  title={isJoker ? 'Para llevarte un joker debes cambiar toda tu mano' : undefined}
                 >
                   <Card card={c} />
                 </div>
-              ))
+                )
+              })
             ) : (
               Array.from({ length: tableInfo?.count ?? 0 }).map((_, i) => (
                 <div key={i} className="table-card-slot"><CardBack /></div>
@@ -282,7 +298,7 @@ function compareTiebreakers(a = [], b = []) {
   return 0
 }
 
-function ShowdownOverlay({ showdown, myNick, timer, onRevealHand, session }) {
+function ShowdownOverlay({ showdown, myNick, timer, timerMax = 8, onRevealHand, session }) {
   const amLoser    = showdown.losers?.includes(myNick)
   const alreadyRevealed = showdown.revealed?.[myNick] != null
 
@@ -300,7 +316,10 @@ function ShowdownOverlay({ showdown, myNick, timer, onRevealHand, session }) {
 
         {timer > 0 && (
           <div className="showdown-timer-bar">
-            <div className="showdown-timer-fill" style={{ width: `${(timer / 8) * 100}%` }} />
+            <div
+              className="showdown-timer-fill"
+              style={{ width: `${(timer / timerMax) * 100}%` }}
+            />
             <span className="showdown-timer-label">{timer}s</span>
           </div>
         )}

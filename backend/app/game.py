@@ -186,30 +186,32 @@ class Game:
 
     # ── Phase 0: order determination ──────────────────────────────
 
-    def determine_order(self, first_player: str | None = None) -> None:
-        """Deal 1 card (no jokers) to each player and compute play order.
+    def determine_order(self, explicit_order: list[str] | None = None) -> None:
+        """Set the play order for this round.
 
-        If `first_player` is given (next round), that player goes first and
-        the rest follow in the clockwise order established this round.
+        Round 1: called with no argument — deals 1 card (no jokers) to each
+        player and sorts by high card to establish the seating.
+
+        Later rounds: called with `explicit_order`, the already-computed turn
+        order (fixed seating filtered to alive players, rotated so the right
+        player starts). No cards are drawn in that case.
         """
+        if explicit_order is not None:
+            self._order = [n for n in explicit_order if n in self._states]
+            return
+
         deck = shuffle_deck(build_deck_no_jokers())
         order_cards: dict[str, Card] = {}
         for i, nick in enumerate(self._all_players):
             order_cards[nick] = deck[i]
         self.order_cards = order_cards
 
-        if first_player and first_player in self._all_players:
-            # Rotate the player list so first_player is at index 0
-            base = list(self._all_players)
-            idx  = base.index(first_player)
-            self._order = base[idx:] + base[:idx]
-        else:
-            # Sort descending by high value; ties broken randomly
-            self._order = sorted(
-                self._all_players,
-                key=lambda n: (order_cards[n].high_value, random.random()),
-                reverse=True,
-            )
+        # Sort descending by high value; ties broken randomly
+        self._order = sorted(
+            self._all_players,
+            key=lambda n: (order_cards[n].high_value, random.random()),
+            reverse=True,
+        )
 
     # ── Phase 1: dealing ──────────────────────────────────────────
 
@@ -299,6 +301,11 @@ class Game:
 
         if hand_card  is None: return False, "Esa carta no está en tu mano."
         if table_card is None: return False, "Esa carta no está en la mesa."
+
+        # A joker on the table can't be taken with a single-card swap;
+        # to get a joker you must swap your whole hand.
+        if table_card.is_joker:
+            return False, "Para llevarte un joker debes cambiar toda tu mano."
 
         s.hand     = [table_card if c.id == hand_card_id  else c for c in s.hand]
         self._table = [hand_card  if c.id == table_card_id else c for c in self._table]

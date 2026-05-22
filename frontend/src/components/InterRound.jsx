@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function InterRound({
   myNick,
@@ -8,6 +8,7 @@ export default function InterRound({
   postLifeOffer,
   acceptOffer,
   cancelOffer,
+  reactOffer,
   proposeFinalDeal,
   acceptFinalDeal,
   rejectFinalDeal,
@@ -183,8 +184,8 @@ export default function InterRound({
 
             <input
               className="nick-input config-input"
-              type="number" min="0" step="0.01" required
-              placeholder="Precio total (S/.)"
+              type="number" min="0" max="1000" step="0.01" required
+              placeholder="Precio total (máx S/. 1000)"
               value={offerPrice}
               onChange={e => setOfferPrice(e.target.value)}
             />
@@ -216,9 +217,18 @@ export default function InterRound({
           <div className="my-offers">
             <p className="ir-hint">Mis ofertas activas:</p>
             {myOffers.map(o => (
-              <div key={o.id} className="offer-row my-offer">
-                <span className="offer-label">{offerLabel(o, myNick)}</span>
-                <button className="btn-danger btn-sm" onClick={() => cancelOffer(o.id)}>Cancelar</button>
+              <div key={o.id} className="offer-card my-offer">
+                <div className="offer-row">
+                  <span className="offer-label">{offerLabel(o, myNick)}</span>
+                  <span className="offer-row-end">
+                    <OfferCountdown expiresAt={o.expires_at} />
+                    <button className="btn-danger btn-sm" onClick={() => cancelOffer(o.id)}>Cancelar</button>
+                  </span>
+                </div>
+                <OfferReactions
+                  offer={o} myNick={myNick}
+                  canReact={isParticipant} onReact={reactOffer}
+                />
               </div>
             ))}
           </div>
@@ -229,11 +239,20 @@ export default function InterRound({
           <div className="public-offers">
             <p className="ir-hint">Ofertas disponibles:</p>
             {othersOffers.map(o => (
-              <div key={o.id} className="offer-row">
-                <span className="offer-label">{offerLabel(o, myNick)}</span>
-                {canAcceptOffer(o) && (
-                  <button className="btn-primary btn-sm" onClick={() => acceptOffer(o.id)}>Aceptar</button>
-                )}
+              <div key={o.id} className="offer-card">
+                <div className="offer-row">
+                  <span className="offer-label">{offerLabel(o, myNick)}</span>
+                  <span className="offer-row-end">
+                    <OfferCountdown expiresAt={o.expires_at} />
+                    {canAcceptOffer(o) && (
+                      <button className="btn-primary btn-sm" onClick={() => acceptOffer(o.id)}>Aceptar</button>
+                    )}
+                  </span>
+                </div>
+                <OfferReactions
+                  offer={o} myNick={myNick}
+                  canReact={isParticipant} onReact={reactOffer}
+                />
               </div>
             ))}
           </div>
@@ -266,6 +285,55 @@ export default function InterRound({
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+// Fixed set of reaction emojis (must match ALLOWED_REACTIONS on the server).
+const REACTION_EMOJIS = ['👍', '👎', '😂', '😮', '🔥', '🤔']
+
+// Live countdown to an offer's expiry (expires_at is a Unix timestamp).
+function OfferCountdown({ expiresAt }) {
+  const compute = () => Math.max(0, Math.ceil(expiresAt - Date.now() / 1000))
+  const [secs, setSecs] = useState(compute)
+
+  useEffect(() => {
+    setSecs(compute())
+    const id = setInterval(() => setSecs(compute()), 500)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expiresAt])
+
+  if (!expiresAt) return null
+  return (
+    <span className={`offer-countdown ${secs <= 5 ? 'urgent' : ''}`}>
+      {secs}s
+    </span>
+  )
+}
+
+function OfferReactions({ offer, myNick, canReact, onReact }) {
+  const reactions = offer.reactions ?? {}
+  return (
+    <div className="offer-reactions">
+      {REACTION_EMOJIS.map(emoji => {
+        const users = reactions[emoji] ?? []
+        const count = users.length
+        const mine  = users.includes(myNick)
+        return (
+          <button
+            key={emoji}
+            type="button"
+            className={`reaction-chip ${mine ? 'mine' : ''} ${count === 0 ? 'empty' : ''}`}
+            disabled={!canReact}
+            onClick={() => canReact && onReact(offer.id, emoji)}
+            title={count > 0 ? users.join(', ') : 'Reaccionar'}
+          >
+            <span className="reaction-emoji">{emoji}</span>
+            {count > 0 && <span className="reaction-count">{count}</span>}
+          </button>
+        )
+      })}
     </div>
   )
 }

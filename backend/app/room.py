@@ -10,6 +10,10 @@ if TYPE_CHECKING:
     from app.game import Game
 
 
+# Maximum allowed amount for any money field (buy-in, offer price, …).
+MAX_MONEY = 1000.0
+
+
 class Phase(str, Enum):
     IDLE        = "idle"
     IN_GAME     = "in_game"
@@ -38,6 +42,20 @@ class LifeOffer:
     amount:      int           # number of lives
     price:       float         # total price in S/.
     target_nick: Optional[str] # only for private offers
+    # Unix timestamp (seconds) when the offer auto-expires.
+    expires_at:  float = 0.0
+    # emoji -> set of nicknames that reacted with it
+    reactions:   dict[str, set[str]] = field(default_factory=dict)
+
+    def toggle_reaction(self, emoji: str, nickname: str) -> None:
+        """Add the reaction if absent, remove it if already present."""
+        users = self.reactions.setdefault(emoji, set())
+        if nickname in users:
+            users.discard(nickname)
+            if not users:
+                del self.reactions[emoji]
+        else:
+            users.add(nickname)
 
 
 @dataclass
@@ -77,6 +95,11 @@ class GameSession:
         self.balances: dict[str, float] = {p: round(-buy_in, 2) for p in players}
         self.round_number: int = 1
         self.last_round_winner: Optional[str] = None
+        # Fixed clockwise seating, set once in round 1 (by high card) and
+        # kept for the whole session. Includes every player — eliminated
+        # ones keep their seat in case they buy a life back. Only "who
+        # starts" changes round to round, never the relative order.
+        self.seat_order: list[str] = list(players)
         # inter-round state
         self.life_offers:   dict[str, LifeOffer] = {}
         self.final_deal:    Optional[FinalDeal]  = None
@@ -116,7 +139,13 @@ class GameSession:
         self.balances[other]    = round(self.balances[other]    + other_share,    2)
         self.pot = 0.0
 
+    def record_round_winner(self, winner: str) -> None:
+        """Remember who won a round (decides who starts the next one).
+        Does NOT touch the pot — that is only paid out at game end."""
+        self.last_round_winner = winner
+
     def award_winner(self, winner: str) -> None:
+        """Pay the whole pot to the game's final winner."""
         self.balances[winner] = round(self.balances[winner] + self.pot, 2)
         self.last_round_winner = winner
         self.pot = 0.0
@@ -141,6 +170,7 @@ class GameSession:
             "round_number": self.round_number,
             "lives":        self.lives,
             "balances":     self.balances,
+            "seat_order":   self.seat_order,
             "losers":       self.losers,
             "inter_ready":  list(self.inter_ready),
             "revealed_hands": self.revealed_hands,
@@ -152,6 +182,8 @@ class GameSession:
                     "amount":      o.amount,
                     "price":       o.price,
                     "target_nick": o.target_nick,
+                    "expires_at":  o.expires_at,
+                    "reactions":   {e: sorted(u) for e, u in o.reactions.items()},
                 }
                 for o in self.life_offers.values()
             ],
@@ -175,6 +207,8 @@ class LobbyConfig:
         if buy_in is not None:
             if buy_in <= 0:
                 return "El buy-in debe ser mayor que 0."
+            if buy_in > MAX_MONEY:
+                return f"El buy-in no puede superar S/. {MAX_MONEY:.2f}."
             self.buy_in = round(buy_in, 2)
         if max_lives is not None:
             if max_lives not in (1, 2, 3, 4):
@@ -310,12 +344,17 @@ class GameRoom:
             self.session.inter_ready.discard(nickname)
 
     def all_inter_ready(self) -> bool:
-        """All alive players (connected) have clicked ready."""
+        """True once every alive, connected participant has clicked ready.
+
+        Uses session.lives (not roles) as the source of truth: during the
+        inter-round a player revived by buying a life is still flagged as a
+        spectator (roles only refresh in begin_next_round), but they DO play
+        the next round and so must be counted here.
+        """
         if self.session is None:
             return False
         alive = set(self.session.alive_players)
-        connected_alive = alive & {n for n, c in self._connections.items()
-                                   if c.role == Role.PLAYING}
+        connected_alive = alive & set(self._connections.keys())
         if not connected_alive:
             return False
         return connected_alive.issubset(self.session.inter_ready)

@@ -894,17 +894,20 @@
   margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.offer-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 12px;
 }
 
 .offer-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  padding: 8px 12px;
   font-size: 14px;
   gap: 10px;
 }
@@ -916,6 +919,95 @@
 .btn-sm {
   font-size: 12px !important;
   padding: 4px 10px !important;
+}
+
+/* ── Offer countdown ─────────────────────────────────── */
+.offer-row-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.offer-countdown {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 2px 8px;
+  min-width: 30px;
+  text-align: center;
+}
+
+/* Last few seconds — turn red to signal it's about to expire. */
+.offer-countdown.urgent {
+  color: #fca5a5;
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.15);
+}
+
+/* ── Offer reactions ─────────────────────────────────── */
+.offer-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.reaction-chip:hover:not(:disabled) {
+  background: #334155;
+}
+
+.reaction-chip:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+/* The local player's own reaction is highlighted. */
+.reaction-chip.mine {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+}
+
+/* Emojis with no reactions yet are dimmed until hovered. */
+.reaction-chip.empty {
+  opacity: 0.45;
+}
+
+.reaction-chip.empty:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.reaction-chip:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.reaction-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.reaction-chip.mine .reaction-count {
+  color: #38bdf8;
 }
 
 /* ── Session info in Table ───────────────────────────── */
