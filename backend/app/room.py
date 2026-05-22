@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -8,6 +9,12 @@ from typing import TYPE_CHECKING, Optional
 from app import sheets
 if TYPE_CHECKING:
     from app.game import Game
+
+
+# Reference instant (Unix seconds) for background-music sync. Fixed at
+# server start: every client computes its playback position relative to
+# this so all players hear roughly the same part of the track.
+MUSIC_EPOCH = time.time()
 
 
 # Maximum allowed amount for any money field (buy-in, offer price, …).
@@ -455,6 +462,10 @@ class GameRoom:
             "config":       self.config.to_dict(),
             "session":      self.session.to_dict() if self.session else None,
             "sheets_url":   sheets.sheets_url(),
+            # Background-music sync: shared reference epoch + the server's
+            # current time, so each client can correct for clock skew.
+            "music_epoch":  MUSIC_EPOCH,
+            "server_time":  time.time(),
         })
 
     async def broadcast_room_state(self) -> None:

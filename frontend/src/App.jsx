@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useGameSocket } from './hooks/useGameSocket'
 import { useSound }      from './hooks/useSound'
 import NickForm      from './components/NickForm'
@@ -12,23 +12,22 @@ function App() {
   const socket = useGameSocket()
   const sound  = useSound()
 
-  // ── Wire sound effects to game events ────────────────────────────────
-  const prev = useRef({ hadShowdown: false, offerCount: 0 })
-
+  // ── Sound effects: play whatever the server broadcasts ───────────────
+  // Effects are server-driven so every player in the room hears the same
+  // sound at the same time.
   useEffect(() => {
-    const p = prev.current
-    const { showdownData, roomState } = socket
+    if (socket.soundEvent) sound.playEffect(socket.soundEvent.effect)
+    // Re-runs whenever soundEvent.seq changes (even for the same effect).
+  }, [socket.soundEvent, sound])
 
-    // Showdown opens
-    const hasShowdown = showdownData != null
-    if (hasShowdown && !p.hadShowdown) sound.playEffect('showdown')
-    p.hadShowdown = hasShowdown
-
-    // A new life offer was posted
-    const offers = roomState?.session?.life_offers ?? []
-    if (offers.length > p.offerCount) sound.playEffect('new_offer')
-    p.offerCount = offers.length
-  }, [socket, sound])
+  // ── Background music sync ────────────────────────────────────────────
+  // Feed the server's shared music clock into the audio system so all
+  // players hear roughly the same part of the track.
+  const musicEpoch  = socket.roomState?.music_epoch
+  const serverTime  = socket.roomState?.server_time
+  useEffect(() => {
+    if (musicEpoch != null) sound.updateMusicClock(musicEpoch, serverTime)
+  }, [musicEpoch, serverTime, sound])
 
   let screenEl = null
 
@@ -74,7 +73,6 @@ function App() {
         onRevealHand={socket.onRevealHand}
         turnTimer={socket.turnTimer}
         turnTimerMax={socket.turnTimerMax}
-        playEffect={sound.playEffect}
       />
     )
   } else if (socket.screen === 'inter_round') {

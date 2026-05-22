@@ -103,11 +103,17 @@ const audioManager = (() => {
     instance.play().catch(() => {})
   }
 
+  // Music sync state.
+  let musicEpoch = null      // server-wide reference instant (Unix s)
+  let clockOffset = 0        // serverNow - clientNow, to correct skew
+  let syncedOnce = false     // true after the first seekTo
+
+  function ytPlayerReady() {
+    return ytPlayer && ytReady && typeof ytPlayer.playVideo === 'function'
+  }
+
   function applyMusicState() {
-    // Guard against the YT object before its control methods exist.
-    if (!ytPlayer || !ytReady || typeof ytPlayer.playVideo !== 'function') {
-      return
-    }
+    if (!ytPlayerReady()) return
     try {
       const wantSound = prefs.musicEnabled && gestureSeen
       // Browsers allow MUTED autoplay; we unmute only after a gesture.
@@ -119,15 +125,38 @@ const audioManager = (() => {
       }
       if (prefs.musicEnabled) ytPlayer.playVideo()
       else                    ytPlayer.pauseVideo()
-      console.log('[sound] applyMusicState:',
-        'enabled=', prefs.musicEnabled,
-        'gesture=', gestureSeen,
-        'muted=', ytPlayer.isMuted?.(),
-        'volume=', ytPlayer.getVolume?.(),
-        'state=', ytPlayer.getPlayerState?.())
-    } catch (e) {
-      console.warn('[sound] applyMusicState falló:', e)
+    } catch {
+      /* player not fully ready — ignored */
     }
+  }
+
+  // Align playback so every player hears roughly the same part of the
+  // track: position = (sharedNow - musicEpoch) mod trackDuration.
+  function syncMusic() {
+    if (!ytPlayerReady() || musicEpoch == null) return
+    try {
+      const duration = ytPlayer.getDuration?.() || 0
+      if (duration <= 0) return   // metadata not loaded yet
+      const sharedNow = Date.now() / 1000 + clockOffset
+      const target = ((sharedNow - musicEpoch) % duration + duration) % duration
+      const current = ytPlayer.getCurrentTime?.() ?? 0
+      // Only correct when drift is noticeable, to avoid constant jumps.
+      if (!syncedOnce || Math.abs(current - target) > 2.5) {
+        ytPlayer.seekTo(target, true)
+        syncedOnce = true
+      }
+    } catch {
+      /* ignored */
+    }
+  }
+
+  // Feed the server's music clock (from room_state) into the manager.
+  function updateMusicClock(epoch, serverTime) {
+    if (typeof epoch === 'number') musicEpoch = epoch
+    if (typeof serverTime === 'number') {
+      clockOffset = serverTime - Date.now() / 1000
+    }
+    syncMusic()
   }
 
   // Called on the first user gesture — now we may produce audible sound.
@@ -135,6 +164,7 @@ const audioManager = (() => {
     if (gestureSeen) return
     gestureSeen = true
     applyMusicState()
+    syncMusic()
   }
 
   let _musicInitStarted = false   // sync guard against double init
@@ -144,7 +174,6 @@ const audioManager = (() => {
     // concurrently and both would otherwise pass an `if (ytPlayer)` check.
     if (!YT_MUSIC_ID || _musicInitStarted) return
     _musicInitStarted = true
-    console.log('[sound] iniciando reproductor YouTube, id =', YT_MUSIC_ID)
     const YT = await loadYouTubeApi()
     // eslint-disable-next-line no-new
     new YT.Player(containerId, {
@@ -166,15 +195,12 @@ const audioManager = (() => {
         // event.target is the fully-built player — use it, not the
         // half-initialised value the constructor returns.
         onReady: (event) => {
-          console.log('[sound] reproductor YouTube listo')
           ytPlayer = event.target
           ytReady = true
           // Start muted (allowed to autoplay); unmutes on first gesture.
           try { ytPlayer.mute(); ytPlayer.playVideo() } catch { /* */ }
           applyMusicState()
-        },
-        onError: (e) => {
-          console.warn('[sound] error de YouTube:', e?.data)
+          syncMusic()
         },
       },
     })
@@ -193,6 +219,8 @@ const audioManager = (() => {
     applyMusicState,
     notifyGesture,
     initMusic,
+    updateMusicClock,
+    syncMusic,
     musicAvailable: () => Boolean(YT_MUSIC_ID),
   }
 })()
@@ -216,9 +244,14 @@ export function useSound() {
     }
     window.addEventListener('pointerdown', kick)
     window.addEventListener('keydown', kick)
+
+    // Re-sync the music every 30 s to correct playback drift.
+    const resyncId = setInterval(() => audioManager.syncMusic(), 30000)
+
     return () => {
       window.removeEventListener('pointerdown', kick)
       window.removeEventListener('keydown', kick)
+      clearInterval(resyncId)
     }
   }, [])
 
@@ -231,9 +264,14 @@ export function useSound() {
     audioManager.playEffect(key)
   }, [])
 
+  const updateMusicClock = useCallback((epoch, serverTime) => {
+    audioManager.updateMusicClock(epoch, serverTime)
+  }, [])
+
   return {
     prefs,
     playEffect,
+    updateMusicClock,
     musicAvailable: audioManager.musicAvailable(),
     setEffectsEnabled: (v) => update({ effectsEnabled: v }),
     setMusicEnabled:   (v) => update({ musicEnabled: v }),

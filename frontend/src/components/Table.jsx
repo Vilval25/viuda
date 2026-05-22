@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import Hand from './Hand'
 import Card, { CardBack } from './Card'
 
@@ -96,7 +95,6 @@ export default function Table({
   onRevealHand,
   turnTimer = 0,
   turnTimerMax = 20,
-  playEffect = () => {},
 }) {
   const players       = gameState?.players ?? []
   const currentPlayer = gameState?.current_player
@@ -130,15 +128,6 @@ export default function Table({
 
   const totalSeats = orderedNicks.length || 1
 
-  // ── Action wrappers (play a sound, then perform the action) ──────────
-  function doSwapOne(handId, tableId) {
-    playEffect('swap_one')
-    swapOne(handId, tableId)
-  }
-  function doSwapAll()  { playEffect('swap_all'); swapAll() }
-  function doPassTurn() { playEffect('pass');     passTurn() }
-  function doStand()    { playEffect('stand');    stand() }
-
   // Single-card swap: a hand card and a table card can be picked in any
   // order. Once both are selected, the swap fires automatically.
   function handleHandCardClick(card) {
@@ -148,7 +137,7 @@ export default function Table({
       return
     }
     if (selectedTableCard) {
-      doSwapOne(card.id, selectedTableCard.id)
+      swapOne(card.id, selectedTableCard.id)
     } else {
       setSelectedHandCard(card)
     }
@@ -163,7 +152,7 @@ export default function Table({
       return
     }
     if (selectedHandCard) {
-      doSwapOne(selectedHandCard.id, card.id)
+      swapOne(selectedHandCard.id, card.id)
     } else {
       setSelectedTableCard(card)
     }
@@ -298,7 +287,7 @@ export default function Table({
               {canAct && (
                 <div className="action-buttons">
                   {canSwapAll && (
-                    <button className="btn btn-primary" onClick={doSwapAll}>Cambiar mano</button>
+                    <button className="btn btn-primary" onClick={swapAll}>Cambiar mano</button>
                   )}
                   {canSwapOne && (
                     <span className="action-hint">
@@ -310,10 +299,10 @@ export default function Table({
                     </span>
                   )}
                   {canPass && (
-                    <button className="btn btn-secondary" onClick={doPassTurn}>Pasar</button>
+                    <button className="btn btn-secondary" onClick={passTurn}>Pasar</button>
                   )}
                   {canStand && (
-                    <button className="btn btn-danger" onClick={doStand}>Plantarse</button>
+                    <button className="btn btn-danger" onClick={stand}>Plantarse</button>
                   )}
                 </div>
               )}

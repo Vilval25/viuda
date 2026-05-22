@@ -21,6 +21,11 @@ export function useGameSocket() {
   const [selectedHandCard, setSelectedHandCard]   = useState(null)
   const [selectedTableCard, setSelectedTableCard] = useState(null)
 
+  // Last server-broadcast sound effect: { effect, seq }. seq increments
+  // each time so repeated identical effects still trigger a re-render.
+  const [soundEvent, setSoundEvent] = useState(null)
+  const soundSeqRef = useRef(0)
+
   // Showdown state. showdownTimerMax is the window's full length so the
   // progress bar can scale (the window varies with player count).
   const [showdownData,  setShowdownData]  = useState(null)
@@ -205,6 +210,12 @@ export function useGameSocket() {
           `${msg.seller} vendió ${lives} a ${msg.buyer} por S/. ${Number(msg.price).toFixed(2)} (${kind})`
         )
       },
+
+      // Server tells the whole room to play a sound effect.
+      play_sound: (msg) => {
+        soundSeqRef.current += 1
+        setSoundEvent({ effect: msg.effect, seq: soundSeqRef.current })
+      },
     }
   })
 
@@ -322,6 +333,7 @@ export function useGameSocket() {
     showdownData, showdownTimer, showdownTimerMax,
     turnTimer, turnTimerMax,
     tradeNotice,
+    soundEvent,
     connect, send,
     joinGame, leaveGame, startGame, ping,
     setReady, setUnready, setConfig,

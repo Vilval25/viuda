@@ -111,6 +111,7 @@ async def _run_turn_timer(game_id: int, player: str) -> None:
         return
     ok, _ = g.apply_pass(player)
     if ok:
+        await _broadcast_sound('pass')
         await _broadcast_game()
         if g.phase == GamePhase.SHOWDOWN:
             await _trigger_showdown(g)
@@ -207,6 +208,9 @@ async def _trigger_showdown(g: Game) -> None:
     session.losers = losers
 
     showdown_secs = _showdown_seconds(len(g._order))
+
+    # Showdown sound for the whole room.
+    await _broadcast_sound('showdown')
 
     # Broadcast showdown_timer message with the countdown
     await room.broadcast_all({"type": "showdown_timer", "seconds": showdown_secs})
@@ -325,6 +329,11 @@ async def handle_ping(_nickname: str, _msg: PingMsg, ws: WebSocket) -> None:
 
 # ── Game action handlers ───────────────────────────────────────────────
 
+async def _broadcast_sound(effect: str) -> None:
+    """Tell every client to play a sound effect, so the whole room hears it."""
+    await room.broadcast_all({"type": "play_sound", "effect": effect})
+
+
 async def _after_action(g: Game) -> None:
     """Shared post-action logic: broadcast, check showdown."""
     await _broadcast_game()
@@ -343,6 +352,7 @@ async def handle_swap_all(nickname: str, _msg: SwapAllMsg, ws: WebSocket) -> Non
     if not ok:
         await ws.send_text(ErrorMsg(message=error).model_dump_json())
     else:
+        await _broadcast_sound('swap_all')
         await _after_action(g)
 
 
@@ -354,6 +364,7 @@ async def handle_swap_one(nickname: str, msg: SwapOneMsg, ws: WebSocket) -> None
     if not ok:
         await ws.send_text(ErrorMsg(message=error).model_dump_json())
     else:
+        await _broadcast_sound('swap_one')
         await _after_action(g)
 
 
@@ -365,6 +376,7 @@ async def handle_pass_turn(nickname: str, _msg: PassTurnMsg, ws: WebSocket) -> N
     if not ok:
         await ws.send_text(ErrorMsg(message=error).model_dump_json())
     else:
+        await _broadcast_sound('pass')
         await _after_action(g)
 
 
@@ -376,6 +388,7 @@ async def handle_stand(nickname: str, _msg: StandMsg, ws: WebSocket) -> None:
     if not ok:
         await ws.send_text(ErrorMsg(message=error).model_dump_json())
     else:
+        await _broadcast_sound('stand')
         await _after_action(g)
 
 
@@ -595,6 +608,7 @@ async def handle_life_offer(nickname: str, msg: LifeOfferMsg, ws: WebSocket) -> 
     session.add_offer(offer)
     # Auto-expire the offer if nobody accepts it within the TTL.
     _offer_expiry_tasks[offer.id] = asyncio.create_task(_expire_offer(offer.id))
+    await _broadcast_sound('new_offer')
     await room.broadcast_room_state()
 
 
