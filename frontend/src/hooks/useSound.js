@@ -115,8 +115,10 @@ const audioManager = (() => {
   function applyMusicState() {
     if (!ytPlayerReady()) return
     try {
-      const wantSound = prefs.musicEnabled && gestureSeen
-      // Browsers allow MUTED autoplay; we unmute only after a gesture.
+      // Audible only when: music on, a user gesture happened, AND the
+      // track has been synced to the shared position — otherwise we'd
+      // briefly play the un-synced 0:00 segment out loud.
+      const wantSound = prefs.musicEnabled && gestureSeen && syncedOnce
       if (wantSound) {
         ytPlayer.unMute()
         ytPlayer.setVolume(Math.round(prefs.musicVolume * 100))
@@ -136,14 +138,21 @@ const audioManager = (() => {
     if (!ytPlayerReady() || musicEpoch == null) return
     try {
       const duration = ytPlayer.getDuration?.() || 0
-      if (duration <= 0) return   // metadata not loaded yet
+      if (duration <= 0) {
+        // Metadata not loaded yet — retry shortly so the first sync happens.
+        setTimeout(syncMusic, 500)
+        return
+      }
       const sharedNow = Date.now() / 1000 + clockOffset
       const target = ((sharedNow - musicEpoch) % duration + duration) % duration
       const current = ytPlayer.getCurrentTime?.() ?? 0
       // Only correct when drift is noticeable, to avoid constant jumps.
       if (!syncedOnce || Math.abs(current - target) > 2.5) {
         ytPlayer.seekTo(target, true)
+        const firstSync = !syncedOnce
         syncedOnce = true
+        // After the first sync the track is aligned — now it may be heard.
+        if (firstSync) applyMusicState()
       }
     } catch {
       /* ignored */
@@ -151,11 +160,15 @@ const audioManager = (() => {
   }
 
   // Feed the server's music clock (from room_state) into the manager.
+  // Only the FIRST reading is used — server_time changes on every message
+  // and re-reading it would make clockOffset jitter and the music re-seek.
+  let musicClockSet = false
   function updateMusicClock(epoch, serverTime) {
-    if (typeof epoch === 'number') musicEpoch = epoch
-    if (typeof serverTime === 'number') {
-      clockOffset = serverTime - Date.now() / 1000
-    }
+    if (musicClockSet) return
+    if (typeof epoch !== 'number' || typeof serverTime !== 'number') return
+    musicEpoch  = epoch
+    clockOffset = serverTime - Date.now() / 1000
+    musicClockSet = true
     syncMusic()
   }
 

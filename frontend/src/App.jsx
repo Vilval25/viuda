@@ -14,20 +14,26 @@ function App() {
 
   // ── Sound effects: play whatever the server broadcasts ───────────────
   // Effects are server-driven so every player in the room hears the same
-  // sound at the same time.
+  // sound at the same time. Keyed on soundEvent.seq ONLY — depending on the
+  // whole `sound` object would re-fire the last effect on every re-render.
+  const playEffect = sound.playEffect
+  const soundSeq   = socket.soundEvent?.seq
+  const soundFx    = socket.soundEvent?.effect
   useEffect(() => {
-    if (socket.soundEvent) sound.playEffect(socket.soundEvent.effect)
-    // Re-runs whenever soundEvent.seq changes (even for the same effect).
-  }, [socket.soundEvent, sound])
+    if (soundSeq != null && soundFx) playEffect(soundFx)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundSeq])
 
   // ── Background music sync ────────────────────────────────────────────
-  // Feed the server's shared music clock into the audio system so all
-  // players hear roughly the same part of the track.
-  const musicEpoch  = socket.roomState?.music_epoch
-  const serverTime  = socket.roomState?.server_time
+  // Feed the server's shared music clock into the audio system. Only the
+  // first reading matters (updateMusicClock ignores later ones).
+  const updateMusicClock = sound.updateMusicClock
+  const musicEpoch = socket.roomState?.music_epoch
+  const serverTime = socket.roomState?.server_time
   useEffect(() => {
-    if (musicEpoch != null) sound.updateMusicClock(musicEpoch, serverTime)
-  }, [musicEpoch, serverTime, sound])
+    if (musicEpoch != null) updateMusicClock(musicEpoch, serverTime)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [musicEpoch])
 
   let screenEl = null
 
