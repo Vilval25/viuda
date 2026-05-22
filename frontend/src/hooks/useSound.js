@@ -22,7 +22,12 @@ const EFFECT_FILES = {
   stand:     'stand.mp3',
   showdown:  'showdown.mp3',
   new_offer: 'new-offer.mp3',
+  one_joker:  '1-joker.mp3',    // personal: a joker landed in your hand
+  two_jokers: '2-jokers.mp3',   // personal: both jokers in your hand
 }
+
+// "Secret" effects play only for the local player and can be toggled off.
+const SECRET_EFFECTS = new Set(['one_joker', 'two_jokers'])
 
 const SOUNDS_BASE = '/sounds/'
 const STORAGE_KEY = 'viuda_sound_prefs'
@@ -37,6 +42,7 @@ const DEFAULT_PREFS = {
   musicEnabled:   true,
   effectsVolume:  1.0,    // effects at max by default
   musicVolume:    0.25,   // music at 25% by default
+  secretEnabled:  true,   // "secret" joker sounds, on by default
 }
 
 function loadPrefs() {
@@ -90,6 +96,8 @@ const audioManager = (() => {
 
   function playEffect(key) {
     if (!prefs.effectsEnabled) return
+    // Secret effects (joker sounds) obey their own toggle.
+    if (SECRET_EFFECTS.has(key) && !prefs.secretEnabled) return
     const file = EFFECT_FILES[key]
     if (!file) return
     let base = effectCache[key]
@@ -302,5 +310,6 @@ export function useSound() {
     setMusicEnabled:   (v) => update({ musicEnabled: v }),
     setEffectsVolume:  (v) => update({ effectsVolume: v }),
     setMusicVolume:    (v) => update({ musicVolume: v }),
+    setSecretEnabled:  (v) => update({ secretEnabled: v }),
   }
 }

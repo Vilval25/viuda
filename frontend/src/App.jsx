@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useGameSocket } from './hooks/useGameSocket'
 import { useSound }      from './hooks/useSound'
 import NickForm      from './components/NickForm'
@@ -34,6 +34,24 @@ function App() {
     if (musicEpoch != null) updateMusicClock(musicEpoch, serverTime)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [musicEpoch])
+
+  // ── Secret joker sounds (personal — only the local player hears them) ─
+  // The `hand` message is per-player, so detecting jokers here is naturally
+  // local. Plays the sound only when the joker count rises (just received).
+  const prevJokers = useRef(0)
+  const hand = socket.hand
+  const roundNumber = socket.roomState?.session?.round_number
+  // A new round deals a fresh hand — reset so its jokers are detected anew.
+  useEffect(() => { prevJokers.current = 0 }, [roundNumber])
+  useEffect(() => {
+    const jokers = (hand ?? []).filter(c => c.rank === 'JOKER').length
+    if (jokers > prevJokers.current) {
+      if (jokers >= 2)      playEffect('two_jokers')
+      else if (jokers === 1) playEffect('one_joker')
+    }
+    prevJokers.current = jokers
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hand])
 
   let screenEl = null
 
