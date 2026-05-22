@@ -169,14 +169,26 @@ const audioManager = (() => {
 
   let _musicInitStarted = false   // sync guard against double init
 
-  async function initMusic(containerId) {
+  async function initMusic() {
     // Set the guard BEFORE the await — two StrictMode mounts call this
     // concurrently and both would otherwise pass an `if (ytPlayer)` check.
     if (!YT_MUSIC_ID || _musicInitStarted) return
     _musicInitStarted = true
+
+    // Create the player's host element OUTSIDE the React tree, appended
+    // straight to <body>. YouTube replaces this node with an iframe; if it
+    // were a React-rendered node, React's reconciliation would later try
+    // to update/remove a node that no longer exists and crash the app.
+    const host = document.createElement('div')
+    host.id = 'viuda-music-player'
+    host.style.cssText =
+      'position:fixed;bottom:0;left:0;width:2px;height:2px;' +
+      'opacity:0.01;pointer-events:none;z-index:0;'
+    document.body.appendChild(host)
+
     const YT = await loadYouTubeApi()
     // eslint-disable-next-line no-new
-    new YT.Player(containerId, {
+    new YT.Player(host, {
       videoId: YT_MUSIC_ID,
       // Privacy-enhanced domain (matches YouTube's "Insertar" snippet) and
       // an explicit origin — without it the API can return error 5 on
@@ -233,7 +245,7 @@ export function useSound() {
   // Create the hidden YouTube player once, and start music on the first
   // user gesture (browsers block autoplay until then).
   useEffect(() => {
-    audioManager.initMusic('viuda-music-player')
+    audioManager.initMusic()
 
     function kick() {
       if (startedRef.current) return

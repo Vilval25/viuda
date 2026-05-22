@@ -5,7 +5,9 @@ import { useState } from 'react'
  * with a toggle + volume slider for effects and (if a music video is
  * configured) for the background music.
  *
- * Also renders the hidden container the YouTube music player mounts into.
+ * The YouTube music player container is NOT rendered here — it lives
+ * outside the React tree (see useSound.js) so YouTube replacing it with
+ * an iframe never clashes with React's DOM reconciliation.
  */
 export default function SoundControls({ sound }) {
   const [open, setOpen] = useState(false)
@@ -20,9 +22,6 @@ export default function SoundControls({ sound }) {
 
   return (
     <>
-      {/* Hidden YouTube background-music player mounts here. */}
-      <div id="viuda-music-player" className="music-player-hidden" />
-
       <div className="sound-controls">
         <button
           className="sound-toggle-btn"
