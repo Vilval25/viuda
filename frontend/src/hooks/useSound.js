@@ -35,8 +35,8 @@ const YT_MUSIC_ID = import.meta.env.VITE_YOUTUBE_MUSIC_ID || ''
 const DEFAULT_PREFS = {
   effectsEnabled: true,
   musicEnabled:   true,
-  effectsVolume:  0.7,
-  musicVolume:    0.4,
+  effectsVolume:  1.0,    // effects at max by default
+  musicVolume:    0.25,   // music at 25% by default
 }
 
 function loadPrefs() {
