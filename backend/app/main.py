@@ -111,7 +111,8 @@ async def _run_turn_timer(game_id: int, player: str) -> None:
         return
     ok, _ = g.apply_pass(player)
     if ok:
-        await _broadcast_sound('pass')
+        # A 2nd consecutive pass auto-stands the player — play that sound.
+        await _broadcast_sound('stand' if g.last_pass_auto_stood else 'pass')
         await _broadcast_game()
         if g.phase == GamePhase.SHOWDOWN:
             await _trigger_showdown(g)
@@ -376,7 +377,8 @@ async def handle_pass_turn(nickname: str, _msg: PassTurnMsg, ws: WebSocket) -> N
     if not ok:
         await ws.send_text(ErrorMsg(message=error).model_dump_json())
     else:
-        await _broadcast_sound('pass')
+        # A 2nd consecutive pass auto-stands the player — play that sound.
+        await _broadcast_sound('stand' if g.last_pass_auto_stood else 'pass')
         await _after_action(g)
 
 

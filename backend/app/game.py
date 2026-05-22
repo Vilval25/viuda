@@ -180,6 +180,9 @@ class Game:
 
         self._turn_number = 0                # absolute turn index
         self._first_stand_turn: int | None = None
+        # True when the most recent apply_pass auto-stood the player
+        # (their 2nd consecutive pass). Lets callers pick the right sound.
+        self.last_pass_auto_stood = False
 
         self.phase = GamePhase.ORDER_DETERMINATION
         self.order_cards: dict[str, Card] = {}
@@ -330,10 +333,12 @@ class Game:
         s = self._states[nickname]
         s.consecutive_passes += 1
         self._last_swapped_ids = []
+        self.last_pass_auto_stood = False
 
         if s.consecutive_passes >= 2:
             # Auto-stand after 2 consecutive passes
             s.is_standing = True
+            self.last_pass_auto_stood = True
             if self._first_stand_turn is None:
                 self._first_stand_turn = self._turn_number
 
