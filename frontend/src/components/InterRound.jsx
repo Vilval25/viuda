@@ -55,6 +55,15 @@ export default function InterRound({
     setOfferAmount('1')
   }
 
+  // Action wrappers. (No dedicated sound effects for these yet — playEffect
+  // is a no-op for unknown keys, kept here for when assets are added.)
+  function handleAcceptOffer(id) {
+    acceptOffer(id)
+  }
+  function handleReactOffer(id, emoji) {
+    reactOffer(id, emoji)
+  }
+
   function handleProposeDeal(e) {
     e.preventDefault()
     proposeFinalDeal(parseFloat(parseFloat(dealShare).toFixed(2)))
@@ -227,7 +236,7 @@ export default function InterRound({
                 </div>
                 <OfferReactions
                   offer={o} myNick={myNick}
-                  canReact={isParticipant} onReact={reactOffer}
+                  canReact={isParticipant} onReact={handleReactOffer}
                 />
               </div>
             ))}
@@ -245,13 +254,13 @@ export default function InterRound({
                   <span className="offer-row-end">
                     <OfferCountdown expiresAt={o.expires_at} />
                     {canAcceptOffer(o) && (
-                      <button className="btn-primary btn-sm" onClick={() => acceptOffer(o.id)}>Aceptar</button>
+                      <button className="btn-primary btn-sm" onClick={() => handleAcceptOffer(o.id)}>Aceptar</button>
                     )}
                   </span>
                 </div>
                 <OfferReactions
                   offer={o} myNick={myNick}
-                  canReact={isParticipant} onReact={reactOffer}
+                  canReact={isParticipant} onReact={handleReactOffer}
                 />
               </div>
             ))}
