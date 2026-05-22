@@ -15,9 +15,11 @@ export function useGameSocket() {
   const [error, setError]                     = useState('')
   const [lastPong, setLastPong]               = useState(null)
   const [hand, setHand]                       = useState([])
+  const [handRank, setHandRank]               = useState(null)
   const [gameState, setGameState]             = useState(null)
   const [validActions, setValidActions]       = useState([])
-  const [selectedHandCard, setSelectedHandCard] = useState(null)
+  const [selectedHandCard, setSelectedHandCard]   = useState(null)
+  const [selectedTableCard, setSelectedTableCard] = useState(null)
 
   // Showdown state. showdownTimerMax is the window's full length so the
   // progress bar can scale (the window varies with player count).
@@ -90,9 +92,11 @@ export function useGameSocket() {
         })
         if (msg.phase === 'idle') {
           setHand([])
+          setHandRank(null)
           setGameState(null)
           setValidActions([])
           setSelectedHandCard(null)
+          setSelectedTableCard(null)
           setShowdownData(null)
           setShowdownTimer(0)
           _clearShowdownInterval()
@@ -124,7 +128,9 @@ export function useGameSocket() {
 
       hand: (msg) => {
         setHand(msg.cards)
+        setHandRank(msg.rank ?? null)
         setSelectedHandCard(null)
+        setSelectedTableCard(null)
       },
 
       game_state: (msg) => {
@@ -273,6 +279,7 @@ export function useGameSocket() {
   const swapOne = useCallback((handCardId, tableCardId) => {
     send('swap_one', { hand_card_id: handCardId, table_card_id: tableCardId })
     setSelectedHandCard(null)
+    setSelectedTableCard(null)
   }, [send])
 
   const onRevealHand = useCallback(() => send('reveal_hand'), [send])
@@ -308,8 +315,9 @@ export function useGameSocket() {
 
   return {
     screen, myNick, myRole, roomState, error, lastPong,
-    hand, gameState, validActions,
+    hand, handRank, gameState, validActions,
     selectedHandCard, setSelectedHandCard,
+    selectedTableCard, setSelectedTableCard,
     amReady,
     showdownData, showdownTimer, showdownTimerMax,
     turnTimer, turnTimerMax,

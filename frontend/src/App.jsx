@@ -34,10 +34,13 @@ function App() {
       <Table
         myNick={socket.myNick}
         hand={socket.hand}
+        handRank={socket.handRank}
         gameState={socket.gameState}
         validActions={socket.validActions}
         selectedHandCard={socket.selectedHandCard}
         setSelectedHandCard={socket.setSelectedHandCard}
+        selectedTableCard={socket.selectedTableCard}
+        setSelectedTableCard={socket.setSelectedTableCard}
         swapAll={socket.swapAll}
         swapOne={socket.swapOne}
         passTurn={socket.passTurn}

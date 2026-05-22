@@ -247,6 +247,14 @@ class Game:
     def get_hand(self, nickname: str) -> list[Card]:
         return self._states[nickname].hand
 
+    def hand_rank(self, nickname: str) -> dict:
+        """Current poker rank of a player's hand: {name, value}."""
+        hand = self._states[nickname].hand
+        if len(hand) != self.HAND_SIZE:
+            return {"name": "HIGH_CARD", "value": int(HandRank.HIGH_CARD)}
+        rank, _ = evaluate_best_hand(hand)
+        return {"name": rank.name, "value": int(rank)}
+
     def valid_actions(self, nickname: str) -> list[str]:
         if self.phase != GamePhase.PLAYING:
             return []

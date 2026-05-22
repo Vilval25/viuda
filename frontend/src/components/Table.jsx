@@ -2,6 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import Hand from './Hand'
 import Card, { CardBack } from './Card'
 
+// Poker hand ranks in Spanish, keyed by the server's HandRank names.
+const RANK_LABELS = {
+  HIGH_CARD:       'Carta alta',
+  ONE_PAIR:        'Pareja',
+  TWO_PAIR:        'Doble pareja',
+  THREE_OF_A_KIND: 'Trío',
+  STRAIGHT:        'Escalera',
+  FLUSH:           'Color',
+  FULL_HOUSE:      'Full',
+  FOUR_OF_A_KIND:  'Póker',
+  STRAIGHT_FLUSH:  'Escalera de color',
+  ROYAL_FLUSH:     'Escalera real',
+}
+
 // ── Round table layout ─────────────────────────────────────────────────
 // The local player is always at the bottom (6 o'clock).
 // Other players are distributed clockwise around the table by turn order.
@@ -61,10 +75,13 @@ function OpponentSeat({ player, isCurrentTurn, session }) {
 export default function Table({
   myNick,
   hand = [],
+  handRank = null,
   gameState,
   validActions = [],
   selectedHandCard,
   setSelectedHandCard,
+  selectedTableCard,
+  setSelectedTableCard,
   swapAll,
   swapOne,
   passTurn,
@@ -112,16 +129,34 @@ export default function Table({
 
   const totalSeats = orderedNicks.length || 1
 
+  // Single-card swap: a hand card and a table card can be picked in any
+  // order. Once both are selected, the swap fires automatically.
   function handleHandCardClick(card) {
     if (!canSwapOne) return
-    setSelectedHandCard(prev => prev?.id === card.id ? null : card)
+    if (selectedHandCard?.id === card.id) {
+      setSelectedHandCard(null)
+      return
+    }
+    if (selectedTableCard) {
+      swapOne(card.id, selectedTableCard.id)
+    } else {
+      setSelectedHandCard(card)
+    }
   }
 
   function handleTableCardClick(card) {
-    if (!canSwapOne || !selectedHandCard) return
+    if (!canSwapOne) return
     // A joker on the table can't be taken with a single-card swap.
     if (card.rank === 'JOKER') return
-    swapOne(selectedHandCard.id, card.id)
+    if (selectedTableCard?.id === card.id) {
+      setSelectedTableCard(null)
+      return
+    }
+    if (selectedHandCard) {
+      swapOne(selectedHandCard.id, card.id)
+    } else {
+      setSelectedTableCard(card)
+    }
   }
 
   return (
@@ -197,13 +232,13 @@ export default function Table({
                   key={c.id}
                   className={[
                     'table-card-slot',
-                    canSwapOne && selectedHandCard && !isJoker ? 'clickable' : '',
+                    canSwapOne && !isJoker ? 'clickable' : '',
                     lastSwapped.has(c.id) ? 'recently-swapped' : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => handleTableCardClick(c)}
                   title={isJoker ? 'Para llevarte un joker debes cambiar toda tu mano' : undefined}
                 >
-                  <Card card={c} />
+                  <Card card={c} selected={selectedTableCard?.id === c.id} />
                 </div>
                 )
               })
@@ -257,7 +292,11 @@ export default function Table({
                   )}
                   {canSwapOne && (
                     <span className="action-hint">
-                      {selectedHandCard ? 'Selecciona carta de la mesa' : 'Selecciona carta de tu mano'}
+                      {selectedHandCard
+                        ? 'Ahora elige una carta de la mesa'
+                        : selectedTableCard
+                          ? 'Ahora elige una carta de tu mano'
+                          : 'Elige una carta (mano o mesa) para intercambiar'}
                     </span>
                   )}
                   {canPass && (
@@ -269,6 +308,12 @@ export default function Table({
                 </div>
               )}
             </div>
+
+            {hand.length > 0 && handRank && (
+              <p className="hand-rank">
+                Tu mano: <strong>{RANK_LABELS[handRank.name] ?? handRank.name}</strong>
+              </p>
+            )}
 
             <Hand
               cards={hand}

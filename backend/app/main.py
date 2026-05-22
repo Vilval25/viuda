@@ -168,7 +168,11 @@ async def _broadcast_game() -> None:
         if conn:
             hand = g.get_hand(nick)
             hand_sends.append(conn.websocket.send_text(
-                json.dumps({"type": "hand", "cards": [c.to_dict() for c in hand]})
+                json.dumps({
+                    "type":  "hand",
+                    "cards": [c.to_dict() for c in hand],
+                    "rank":  g.hand_rank(nick),
+                })
             ))
     await asyncio.gather(*hand_sends, return_exceptions=True)
 
