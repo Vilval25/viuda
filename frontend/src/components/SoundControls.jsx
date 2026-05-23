@@ -15,7 +15,7 @@ export default function SoundControls({ sound }) {
     prefs, musicAvailable,
     setEffectsEnabled, setMusicEnabled,
     setEffectsVolume, setMusicVolume,
-    setSecretEnabled,
+    setSecretEnabled, setStandAlt,
   } = sound
 
   const allMuted =
@@ -79,6 +79,17 @@ export default function SoundControls({ sound }) {
                   onChange={e => setSecretEnabled(e.target.checked)}
                 />
                 Secret
+              </label>
+            </div>
+
+            <div className="sound-row">
+              <label className="sound-label">
+                <input
+                  type="checkbox"
+                  checked={prefs.standAlt}
+                  onChange={e => setStandAlt(e.target.checked)}
+                />
+                Stand alterno
               </label>
             </div>
           </div>

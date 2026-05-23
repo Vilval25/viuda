@@ -551,6 +551,34 @@
   box-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
 }
 
+/* Slots with a "taken ghost" overlay need to be positioning contexts so
+   the ghost can sit behind the current card, slightly offset. */
+.table-card-slot.has-ghost {
+  position: relative;
+}
+
+/* The ghost of the card just taken from this slot. Translucent, rotated
+   and shifted behind the new card so it reads as "this was here before". */
+.taken-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-22%, -55%) rotate(-8deg);
+  opacity: 0.45;
+  filter: grayscale(0.35);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.taken-ghost .card-tile {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.table-card-slot.has-ghost > .card-tile {
+  position: relative;
+  z-index: 1;
+}
+
 /* ── My turn highlight ───────────────────────────────── */
 /* When it's the local player's turn, the whole hand area glows amber
    — a warm accent that stands out against the blue card backs. */

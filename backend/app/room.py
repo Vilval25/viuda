@@ -351,20 +351,24 @@ class GameRoom:
             self.session.inter_ready.discard(nickname)
 
     def all_inter_ready(self) -> bool:
-        """True once every alive, connected participant has clicked ready.
+        """True once every alive participant has clicked ready.
 
         Uses session.lives (not roles) as the source of truth: during the
         inter-round a player revived by buying a life is still flagged as a
         spectator (roles only refresh in begin_next_round), but they DO play
         the next round and so must be counted here.
+
+        A momentarily disconnected alive player BLOCKS the start: they may
+        still reconnect, click ready, and play the round. We wait for them.
+        Only players who left the session for good (not alive any more) are
+        skipped.
         """
         if self.session is None:
             return False
         alive = set(self.session.alive_players)
-        connected_alive = alive & set(self._connections.keys())
-        if not connected_alive:
+        if not alive:
             return False
-        return connected_alive.issubset(self.session.inter_ready)
+        return alive.issubset(self.session.inter_ready)
 
     # ------------------------------------------------------------------
     # Game control

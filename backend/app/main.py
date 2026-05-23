@@ -55,8 +55,12 @@ def health_check() -> dict:
 _turn_timer_task: asyncio.Task | None = None
 _turn_timer_game_id: int | None = None   # id() of the current Game object
 
-# Seconds a player has to act on their turn before an automatic pass.
-TURN_TIMER_SECONDS = 20
+# Turn timer. The bar UI shows VISIBLE seconds, but the real timeout is
+# slightly longer to give players a small grace window — anyone acting in
+# the last visible second doesn't lose their turn to a race.
+TURN_TIMER_VISIBLE_SECONDS = 25
+TURN_TIMER_GRACE_SECONDS   = 3
+TURN_TIMER_SECONDS = TURN_TIMER_VISIBLE_SECONDS + TURN_TIMER_GRACE_SECONDS
 
 
 def _showdown_seconds(player_count: int) -> int:
@@ -135,13 +139,18 @@ def _restart_turn_timer() -> None:
 
 
 async def _broadcast_turn_timer() -> None:
-    """Broadcast the turn countdown start to all clients."""
+    """Broadcast the turn countdown start to all clients.
+
+    The countdown the client shows is `seconds` — the visible bar length.
+    The server still auto-passes after the longer real timeout (+ grace),
+    so a player acting in the last visible second doesn't lose their turn.
+    """
     g = room.game
     if g is None or g.phase != GamePhase.PLAYING or g.current_player is None:
         return
     await room.broadcast_all({
         "type": "turn_timer",
-        "seconds": TURN_TIMER_SECONDS,
+        "seconds": TURN_TIMER_VISIBLE_SECONDS,
         "player": g.current_player,
     })
 

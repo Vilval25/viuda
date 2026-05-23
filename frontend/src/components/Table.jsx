@@ -94,7 +94,7 @@ export default function Table({
   showdownTimerMax = 8,
   onRevealHand,
   turnTimer = 0,
-  turnTimerMax = 20,
+  turnTimerMax = 25,
 }) {
   const players       = gameState?.players ?? []
   const currentPlayer = gameState?.current_player
@@ -102,6 +102,8 @@ export default function Table({
   const tableInfo     = gameState?.table
   const tableCards    = tableInfo?.face_up ? (tableInfo.cards ?? []) : []
   const lastSwapped   = new Set(tableInfo?.last_swapped ?? [])
+  // Ghost of the card just taken from each slot — { slotIndex: card }.
+  const lastTaken     = tableInfo?.last_taken ?? {}
   const showdown      = showdownData
 
   const myData  = players.find(p => p.nickname === myNick)
@@ -224,8 +226,9 @@ export default function Table({
           {/* Table cards in center */}
           <div className="table-cards-row">
             {tableInfo?.face_up ? (
-              tableCards.map(c => {
+              tableCards.map((c, i) => {
                 const isJoker = c.rank === 'JOKER'
+                const ghost   = lastTaken[i] ?? lastTaken[String(i)]
                 return (
                 <div
                   key={c.id}
@@ -233,10 +236,16 @@ export default function Table({
                     'table-card-slot',
                     canSwapOne && !isJoker ? 'clickable' : '',
                     lastSwapped.has(c.id) ? 'recently-swapped' : '',
+                    ghost ? 'has-ghost' : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => handleTableCardClick(c)}
                   title={isJoker ? 'Para llevarte un joker debes cambiar toda tu mano' : undefined}
                 >
+                  {ghost && (
+                    <div className="taken-ghost" aria-hidden="true">
+                      <Card card={ghost} />
+                    </div>
+                  )}
                   <Card card={c} selected={selectedTableCard?.id === c.id} />
                 </div>
                 )

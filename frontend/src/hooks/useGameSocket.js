@@ -35,7 +35,7 @@ export function useGameSocket() {
 
   // Turn timer countdown (received from server)
   const [turnTimer, setTurnTimer] = useState(0)
-  const [turnTimerMax, setTurnTimerMax] = useState(20)
+  const [turnTimerMax, setTurnTimerMax] = useState(25)
   const turnTimerIntervalRef = useRef(null)
 
   // Error auto-clear timer
@@ -151,7 +151,7 @@ export function useGameSocket() {
 
       // Turn timer from server (duration may vary)
       turn_timer: (msg) => {
-        const secs = msg.seconds ?? 20
+        const secs = msg.seconds ?? 25
         _clearTurnTimerInterval()
         setTurnTimerMax(secs)
         setTurnTimer(secs)

@@ -20,6 +20,7 @@ const EFFECT_FILES = {
   swap_one:  'swap-one.mp3',
   pass:      'pass.mp3',
   stand:     'stand.mp3',
+  stand_alt: 'stand-2.mp3',
   showdown:  'showdown.mp3',
   new_offer: 'new-offer.mp3',
   one_joker:  '1-joker.mp3',    // personal: a joker landed in your hand
@@ -43,6 +44,7 @@ const DEFAULT_PREFS = {
   effectsVolume:  1.0,    // effects at max by default
   musicVolume:    0.25,   // music at 25% by default
   secretEnabled:  true,   // "secret" joker sounds, on by default
+  standAlt:       false,  // use stand-2.mp3 instead of stand.mp3
 }
 
 function loadPrefs() {
@@ -98,12 +100,14 @@ const audioManager = (() => {
     if (!prefs.effectsEnabled) return
     // Secret effects (joker sounds) obey their own toggle.
     if (SECRET_EFFECTS.has(key) && !prefs.secretEnabled) return
-    const file = EFFECT_FILES[key]
+    // The local player can pick the alternate stand sound.
+    const effectiveKey = key === 'stand' && prefs.standAlt ? 'stand_alt' : key
+    const file = EFFECT_FILES[effectiveKey]
     if (!file) return
-    let base = effectCache[key]
+    let base = effectCache[effectiveKey]
     if (!base) {
       base = new Audio(SOUNDS_BASE + file)
-      effectCache[key] = base
+      effectCache[effectiveKey] = base
     }
     // Clone so overlapping effects can play at once.
     const instance = base.cloneNode()
@@ -311,5 +315,6 @@ export function useSound() {
     setEffectsVolume:  (v) => update({ effectsVolume: v }),
     setMusicVolume:    (v) => update({ musicVolume: v }),
     setSecretEnabled:  (v) => update({ secretEnabled: v }),
+    setStandAlt:       (v) => update({ standAlt: v }),
   }
 }

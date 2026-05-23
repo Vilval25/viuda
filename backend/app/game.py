@@ -177,6 +177,10 @@ class Game:
         self._table_face_up = False
         # ids of table cards changed by the most recent action (highlight)
         self._last_swapped_ids: list[str] = []
+        # The cards that LEFT the table on the last swap, keyed by the slot
+        # index they were taken from. Used to show a ghost of the taken
+        # card beside its replacement.
+        self._last_taken_by_slot: dict[int, Card] = {}
 
         self._turn_number = 0                # absolute turn index
         self._first_stand_turn: int | None = None
@@ -293,6 +297,9 @@ class Game:
         self._table_face_up  = True
         s.consecutive_passes = 0
         self._last_swapped_ids = [c.id for c in self._table]
+        # Ghost is only shown after a single-card swap. swap_all replaces
+        # the whole table so a "what was here" hint isn't useful.
+        self._last_taken_by_slot = {}
         self._advance()
         return True, ""
 
@@ -318,10 +325,19 @@ class Game:
         if table_card.is_joker:
             return False, "Para llevarte un joker debes cambiar toda tu mano."
 
+        # Remember which slot held the card that just left.
+        taken_slot = next(
+            (i for i, c in enumerate(self._table) if c.id == table_card_id),
+            None,
+        )
         s.hand     = [table_card if c.id == hand_card_id  else c for c in s.hand]
         self._table = [hand_card  if c.id == table_card_id else c for c in self._table]
         s.consecutive_passes = 0
         self._last_swapped_ids = [hand_card.id]
+        # Only this one slot's "taken" ghost is meaningful now.
+        self._last_taken_by_slot = (
+            {taken_slot: table_card} if taken_slot is not None else {}
+        )
         self._advance()
         return True, ""
 
@@ -466,6 +482,12 @@ class Game:
                 "count":   len(self._table),
                 "cards":   [c.to_dict() for c in self._table] if self._table_face_up else None,
                 "last_swapped": self._last_swapped_ids,
+                # Per-slot dict { slotIndex: card } of cards just taken from
+                # the table — shown as a translucent ghost beside their
+                # replacement until the next swap.
+                "last_taken": {
+                    str(i): c.to_dict() for i, c in self._last_taken_by_slot.items()
+                },
             },
         }
 
