@@ -1,0 +1,25 @@
+# Render Blueprint — despliega el backend de "viuda".
+# Importa este repo en Render (New > Blueprint) y detectará este archivo.
+services:
+  - type: web
+    name: viuda-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      # Define estos valores en el panel de Render (no los pongas aquí):
+      #   CORS_ORIGINS              -> URL del frontend en Vercel
+      #   GOOGLE_SHEETS_ID          -> ID de la hoja de cálculo
+      #   GOOGLE_SHEETS_URL         -> URL completa de la hoja
+      #   GOOGLE_SHEETS_CREDENTIALS -> ruta al secret file (ver abajo)
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GOOGLE_SHEETS_ID
+        sync: false
+      - key: GOOGLE_SHEETS_URL
+        sync: false
+      - key: GOOGLE_SHEETS_CREDENTIALS
+        sync: false
