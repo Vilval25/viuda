@@ -220,8 +220,8 @@ class LobbyConfig:
                 return f"El buy-in no puede superar S/. {MAX_MONEY:.2f}."
             self.buy_in = round(buy_in, 2)
         if max_lives is not None:
-            if max_lives not in (1, 2, 3, 4):
-                return "Las vidas deben ser 1, 2, 3 o 4."
+            if max_lives not in (1, 2, 3, 4, 5):
+                return "Las vidas deben ser 1, 2, 3, 4 o 5."
             self.max_lives = max_lives
         return ""
 

@@ -122,6 +122,7 @@ export default function Table({
 
   const [reactions, setReactions] = useState([])
   const lastReactionRef = useRef(null)
+  const [showEmojiMenu, setShowEmojiMenu] = useState(false)
 
   useEffect(() => {
     if (gameReaction && gameReaction !== lastReactionRef.current) {
@@ -404,18 +405,6 @@ export default function Table({
               selectedId={selectedHandCard?.id}
             />
 
-            {/* Emoji Reaction Selector */}
-            <div className="emoji-reaction-bar">
-              {['👍', '👎', '😂', '😮', '🔥', '🤔', '😱', '🃏', '👑'].map(emoji => (
-                <button
-                  key={emoji}
-                  className="reaction-emoji-btn"
-                  onClick={() => sendGameReaction(emoji)}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
           </>
         ) : (
           <p className="spectator-area-label">
@@ -423,6 +412,37 @@ export default function Table({
           </p>
         )}
       </div>
+
+      {/* ── Floating Emoji Reaction Selector (collapsible dropdown) ── */}
+      {isInGame && (
+        <div className="emoji-controls">
+          <button
+            className="emoji-toggle-btn"
+            onClick={() => setShowEmojiMenu(prev => !prev)}
+            title="Reacciones"
+            aria-label="Reacciones"
+          >
+            😀
+          </button>
+          
+          {showEmojiMenu && (
+            <div className="emoji-dropdown-menu">
+              {['👍', '👎', '😂', '😮', '🔥', '🤔', '😱', '🃏', '👑'].map(emoji => (
+                <button
+                  key={emoji}
+                  className="reaction-emoji-btn"
+                  onClick={() => {
+                    sendGameReaction(emoji)
+                    setShowEmojiMenu(false)
+                  }}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   )
