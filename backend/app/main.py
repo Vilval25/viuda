@@ -27,12 +27,14 @@ app = FastAPI()
 # Allowed CORS origins. In production set CORS_ORIGINS to a comma-separated
 # list of frontend URLs (e.g. "https://viuda.vercel.app"). Defaults to the
 # local Vite dev server.
-_default_origins = "http://localhost:5173,http://127.0.0.1:5173,https://viuda.vercel.app"
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
 _cors_origins = [
     o.strip()
     for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",")
     if o.strip()
 ]
+if "https://viuda.vercel.app" not in _cors_origins:
+    _cors_origins.append("https://viuda.vercel.app")
 
 app.add_middleware(
     CORSMiddleware,
