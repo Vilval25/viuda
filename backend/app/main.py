@@ -162,6 +162,20 @@ def _cancel_turn_timer() -> None:
     _cancel_active_timer()
 
 
+def _resync_turn_after_disconnect() -> None:
+    """Re-arm the turn timer if a game is mid-turn but no timer is running.
+
+    A disconnect (e.g. a device switch closing the old socket) must never
+    leave the turn frozen: if the active game still expects an action but the
+    auto-pass timer was lost, restart it so the round keeps advancing.
+    """
+    g = room.game
+    if g is None or g.phase != GamePhase.PLAYING:
+        return
+    if _turn_timer_task is None or _turn_timer_task.done():
+        _restart_turn_timer()
+
+
 # ── Broadcast helpers ──────────────────────────────────────────────────
 
 async def _broadcast_game() -> None:
@@ -200,7 +214,22 @@ def _finish_session(winner: str | None = None) -> None:
     _cancel_all_offer_expiry()
     report = room.end_session(winner=winner)
     if report is not None and sheets.is_enabled():
-        asyncio.create_task(asyncio.to_thread(sheets.append_report, report))
+        asyncio.create_task(_upload_report(report))
+
+
+async def _upload_report(report) -> None:
+    """Upload a game report to Sheets, logging the outcome.
+
+    append_report swallows its own errors and returns False, so without this
+    a failed upload would vanish silently. Log success/failure so missing
+    rows in the sheet can be traced.
+    """
+    try:
+        ok = await asyncio.to_thread(sheets.append_report, report)
+        if not ok:
+            print(f"[sheets] El reporte de partida {report.id} NO se pudo subir.")
+    except Exception as exc:
+        print(f"[sheets] Error inesperado al subir el reporte {report.id}: {exc!r}")
 
 
 async def _trigger_showdown(g: Game) -> None:
@@ -1007,8 +1036,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 await handler(nickname, incoming, websocket)
 
     except WebSocketDisconnect:
-        room.disconnect(nickname)
+        room.disconnect(nickname, websocket)
+        _resync_turn_after_disconnect()
         await room.broadcast_room_state()
     except Exception:
-        room.disconnect(nickname)
+        room.disconnect(nickname, websocket)
+        _resync_turn_after_disconnect()
         await room.broadcast_room_state()

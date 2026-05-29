@@ -4,6 +4,19 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 // falls back to the local backend for development.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws'
 
+// localStorage key holding the remembered session { username, apodo }.
+const SESSION_KEY = 'viuda_session'
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const s = JSON.parse(raw)
+    if (s && s.username) return s
+  } catch { /* ignore corrupt storage */ }
+  return null
+}
+
 export function useGameSocket() {
   const wsRef = useRef(null)
   const [screen, setScreen]                   = useState('nick_form')
@@ -255,17 +268,30 @@ export function useGameSocket() {
   }, [])
 
   // ── Connection ───────────────────────────────────────────────────────
+  const loggingOutRef = useRef(false)
+
   const connect = useCallback((username, apodo) => {
     if (!username.trim()) return
     setError('')
     setMyNick(username.trim())
+    loggingOutRef.current = false
+
+    // Remember the session so the player skips the login form next time.
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        username: username.trim(),
+        apodo: (apodo || '').trim(),
+      }))
+    } catch { /* storage may be unavailable (private mode) */ }
 
     const socket = new WebSocket(WS_URL)
     socket.onopen    = () => send_raw(socket, 'join', { nickname: username.trim(), apodo: apodo.trim() })
     socket.onmessage = handleMessage
     socket.onclose   = (event) => {
       if (wsRef.current) {
-        if (event.code === 4000 && event.reason === 'session_superseded') {
+        if (loggingOutRef.current) {
+          // Intentional logout — no error, the form is already showing.
+        } else if (event.code === 4000 && event.reason === 'session_superseded') {
           setError('Tu sesión ha sido iniciada en otra pestaña.')
         } else {
           setError('Conexión cerrada por el servidor.')
@@ -278,6 +304,20 @@ export function useGameSocket() {
     }
     wsRef.current = socket
   }, [handleMessage])
+
+  // Clear the remembered session and drop the socket, returning to login.
+  const logout = useCallback(() => {
+    loggingOutRef.current = true
+    try { localStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+    const sock = wsRef.current
+    wsRef.current = null
+    if (sock) try { sock.close() } catch { /* ignore */ }
+    _clearShowdownInterval()
+    _clearTurnTimerInterval()
+    setMyNick('')
+    setError('')
+    setScreen('nick_form')
+  }, [])
 
   // ── Sender ───────────────────────────────────────────────────────────
   function send_raw(socket, type, payload = {}) {
@@ -363,7 +403,8 @@ export function useGameSocket() {
     soundEvent,
     orderResult, setOrderResult,
     gameReaction,
-    connect, send, changeApodo,
+    connect, logout, send, changeApodo,
+    savedSession: loadSession(),
     joinGame, leaveGame, startGame, ping,
     setReady, setUnready, setConfig,
     swapAll, swapOne, passTurn, stand, newGame,

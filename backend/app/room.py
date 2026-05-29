@@ -305,9 +305,19 @@ class GameRoom:
         self._connections[nickname] = Connection(websocket, nickname, old_role, ready=old_ready, apodo=apodo_to_use)
         return True, ""
 
-    def disconnect(self, nickname: str) -> None:
-        conn = self._connections.pop(nickname, None)
-        if conn and conn.role == Role.PLAYING and self.phase in (Phase.IN_GAME, Phase.INTER_ROUND):
+    def disconnect(self, nickname: str, websocket: Optional[WebSocket] = None) -> None:
+        # Only drop the connection if the socket that is closing is the one
+        # currently registered. When a player switches device, the old socket
+        # closes *after* the new one already registered under the same nick;
+        # without this guard the stale close would evict the live connection
+        # and freeze that player's turn.
+        conn = self._connections.get(nickname)
+        if conn is None:
+            return
+        if websocket is not None and conn.websocket is not websocket:
+            return
+        self._connections.pop(nickname, None)
+        if conn.role == Role.PLAYING and self.phase in (Phase.IN_GAME, Phase.INTER_ROUND):
             self._disconnected.add(nickname)
 
     def is_reconnect(self, nickname: str) -> bool:

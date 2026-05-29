@@ -4,7 +4,7 @@ export default function Lobby({
   myNick, myRole, roomState,
   joinGame, leaveGame, startGame,
   setReady, setUnready, setConfig,
-  amReady, changeApodo,
+  amReady, changeApodo, logout,
 }) {
   const {
     waiting = [], playing = [], spectators = [], disconnected = [],
@@ -210,6 +210,24 @@ export default function Lobby({
               }}
             >
               ✏️ Editar Apodo
+            </button>
+          )}
+          {phase === 'idle' && logout && (
+            <button
+              className="btn-logout"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text)',
+                opacity: 0.6,
+                cursor: 'pointer',
+                fontSize: '12px',
+                textDecoration: 'underline',
+                marginTop: '4px',
+              }}
+              onClick={logout}
+            >
+              Cerrar sesión
             </button>
           )}
         </div>

@@ -14,6 +14,18 @@ function App() {
   const sound  = useSound()
   const [startNotice, setStartNotice] = useState(null)
 
+  // Auto-login from a remembered session so the player skips the form.
+  // Runs once on mount; the connect call is a no-op if the socket is up.
+  const connect = socket.connect
+  const triedAutoLogin = useRef(false)
+  useEffect(() => {
+    if (triedAutoLogin.current) return
+    triedAutoLogin.current = true
+    const s = socket.savedSession
+    if (s?.username) connect(s.username, s.apodo || s.username)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── Sound effects: play whatever the server broadcasts ───────────────
   // Effects are server-driven so every player in the room hears the same
   // sound at the same time. Keyed on soundEvent.seq ONLY — depending on the
@@ -98,6 +110,7 @@ function App() {
         setConfig={socket.setConfig}
         amReady={socket.amReady}
         changeApodo={socket.changeApodo}
+        logout={socket.logout}
       />
     )
   } else if (socket.screen === 'in_game') {
