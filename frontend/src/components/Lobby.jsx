@@ -70,6 +70,7 @@ export default function Lobby({
                   <option value="2">2 vidas</option>
                   <option value="3">3 vidas</option>
                   <option value="4">4 vidas</option>
+                  <option value="5">5 vidas</option>
                 </select>
                 <button type="submit" className="btn-secondary config-btn">
                   Actualizar
