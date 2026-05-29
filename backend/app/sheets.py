@@ -114,6 +114,11 @@ def _append_rows_with_retry(rows: list[list], attempts: int = 3) -> bool:
 
 from datetime import timezone, timedelta
 
+# Fixed Peru timezone (UTC-5, no DST). Used for every datetime in this module
+# so timestamps written to and read back from the sheet are all timezone-aware
+# and can be subtracted without raising.
+PERU_TZ = timezone(timedelta(hours=-5))
+
 _last_report_dt = None
 _current_date_str = None
 _current_session_num = 1
@@ -140,7 +145,9 @@ def _get_last_session_info_from_sheet(ws) -> tuple[Optional[datetime.datetime], 
                     date_str = parts[0] # "DD-MM-YYYY"
                     try:
                         session_num = int(parts[1])
-                        dt = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                        dt = datetime.datetime.strptime(
+                            timestamp_str, "%Y-%m-%d %H:%M:%S"
+                        ).replace(tzinfo=PERU_TZ)
                         return dt, date_str, session_num
                     except ValueError:
                         continue
@@ -166,7 +173,7 @@ def append_report(report) -> bool:
         return False
 
     # Get Peruvian time (UTC-5)
-    peru_now = datetime.datetime.now(timezone.utc) - timedelta(hours=5)
+    peru_now = datetime.datetime.now(PERU_TZ)
     peru_date_str = peru_now.strftime("%d-%m-%Y") # "DD-MM-YYYY"
     timestamp = peru_now.strftime("%Y-%m-%d %H:%M:%S")
 
