@@ -4,16 +4,19 @@ export default function Lobby({
   myNick, myRole, roomState,
   joinGame, leaveGame, startGame,
   setReady, setUnready, setConfig,
-  amReady,
+  amReady, changeApodo,
 }) {
   const {
     waiting = [], playing = [], spectators = [], disconnected = [],
     phase, ready = [], config = { buy_in: 10, max_lives: 3 },
     sheets_url = null,
+    apodos = {},
   } = roomState
 
   const [editBuyIn,    setEditBuyIn]    = useState('')
   const [editMaxLives, setEditMaxLives] = useState('')
+  const [showChangeApodo, setShowChangeApodo] = useState(false)
+  const [newApodoVal, setNewApodoVal] = useState('')
 
   const canJoin    = phase === 'idle' && waiting.length < 9 && myRole === 'spectator'
   const canStart   = phase === 'idle' && myRole === 'waiting' && roomState.all_ready !== false && waiting.length >= 2 && waiting.every(n => ready.includes(n))
@@ -28,6 +31,17 @@ export default function Lobby({
     setEditBuyIn('')
     setEditMaxLives('')
   }
+
+  function handleUpdateApodo(e) {
+    e.preventDefault()
+    if (newApodoVal.trim()) {
+      changeApodo(newApodoVal.trim())
+      setShowChangeApodo(false)
+      setNewApodoVal('')
+    }
+  }
+
+  const myDisplayName = apodos[myNick] || myNick
 
   return (
     <div className="screen-center">
@@ -88,12 +102,14 @@ export default function Lobby({
             myNick={myNick}
             emptyText="Nadie esperando aún"
             readySet={new Set(ready)}
+            apodos={apodos}
           />
           {playing.length > 0 && (
             <PlayerList
               title={`Jugando (${playing.length})`}
               players={playing}
               myNick={myNick}
+              apodos={apodos}
             />
           )}
           {spectators.length > 0 && (
@@ -101,6 +117,7 @@ export default function Lobby({
               title={`Espectadores (${spectators.length})`}
               players={spectators}
               myNick={myNick}
+              apodos={apodos}
             />
           )}
           {disconnected.length > 0 && (
@@ -109,6 +126,7 @@ export default function Lobby({
               players={disconnected}
               myNick={myNick}
               dimmed
+              apodos={apodos}
             />
           )}
         </div>
@@ -170,7 +188,75 @@ export default function Lobby({
           </a>
         )}
 
-        <p className="my-nick-label">Conectado como <strong>{myNick}</strong></p>
+        <div className="my-nick-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '15px' }}>
+          <p className="my-nick-label" style={{ margin: 0 }}>
+            Conectado como <strong>{myDisplayName}</strong> <span style={{ opacity: 0.6, fontSize: '12px' }}>({myNick})</span>
+          </p>
+          {phase === 'idle' && (
+            <button 
+              className="btn-change-apodo" 
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                fontSize: '13px',
+                textDecoration: 'underline',
+                marginTop: '5px'
+              }}
+              onClick={() => {
+                setNewApodoVal(apodos[myNick] || myNick)
+                setShowChangeApodo(true)
+              }}
+            >
+              ✏️ Editar Apodo
+            </button>
+          )}
+        </div>
+
+        {showChangeApodo && (
+          <div className="change-apodo-modal-backdrop" style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}>
+            <div className="card change-apodo-card" style={{ maxWidth: '350px', width: '90%', padding: '20px' }}>
+              <h3 style={{ margin: '0 0 10px 0' }}>Editar Apodo</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text)', opacity: 0.8, margin: '0 0 15px 0' }}>
+                Este nombre será visible para todos en la mesa de juego.
+              </p>
+              <form onSubmit={handleUpdateApodo}>
+                <input
+                  type="text"
+                  className="nick-input"
+                  placeholder="Tu nuevo apodo"
+                  value={newApodoVal}
+                  onChange={e => setNewApodoVal(e.target.value)}
+                  maxLength={15}
+                  required
+                  autoFocus
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+                <div className="modal-buttons" style={{ display: 'flex', gap: '10px', marginTop: '15px', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn-secondary" onClick={() => setShowChangeApodo(false)}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn-primary">
+                    Guardar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
@@ -188,7 +274,7 @@ function SheetsIcon() {
   )
 }
 
-function PlayerList({ title, players, myNick, emptyText, readySet, dimmed = false }) {
+function PlayerList({ title, players, myNick, emptyText, readySet, apodos = {}, dimmed = false }) {
   if (players.length === 0 && !emptyText) return null
   return (
     <div className={`player-list${dimmed ? ' dimmed' : ''}`}>
@@ -197,13 +283,16 @@ function PlayerList({ title, players, myNick, emptyText, readySet, dimmed = fals
         ? <p className="empty-list">{emptyText}</p>
         : (
           <ul>
-            {players.map(nick => (
-              <li key={nick} className={nick === myNick ? 'me' : ''}>
-                {readySet?.has(nick) && <span className="ready-dot">✓ </span>}
-                {nick === myNick ? `${nick} (tú)` : nick}
-                {dimmed && ' ⚠'}
-              </li>
-            ))}
+            {players.map(nick => {
+              const displayName = apodos[nick] || nick
+              return (
+                <li key={nick} className={nick === myNick ? 'me' : ''}>
+                  {readySet?.has(nick) && <span className="ready-dot">✓ </span>}
+                  {nick === myNick ? `${displayName} (tú)` : displayName}
+                  {dimmed && ' ⚠'}
+                </li>
+              )
+            })}
           </ul>
         )
       }

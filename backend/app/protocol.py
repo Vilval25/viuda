@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, ValidationError, TypeAdapter
 class JoinMsg(BaseModel):
     type: Literal["join"]
     nickname: str
+    apodo: Optional[str] = None
 
 class JoinGameMsg(BaseModel):
     type: Literal["join_game"]
@@ -115,6 +116,10 @@ class AcceptFinalDealMsg(BaseModel):
 class RejectFinalDealMsg(BaseModel):
     type: Literal["reject_final_deal"]
 
+class ChangeApodoMsg(BaseModel):
+    type: Literal["change_apodo"]
+    apodo: str
+
 
 IncomingMessage = Annotated[
     Union[
@@ -127,6 +132,7 @@ IncomingMessage = Annotated[
         LifeOfferMsg, AcceptOfferMsg, CancelOfferMsg, ReactOfferMsg,
         PlaceBidMsg, GameReactionMsg,
         ProposeFinalDealMsg, AcceptFinalDealMsg, RejectFinalDealMsg,
+        ChangeApodoMsg,
     ],
     Field(discriminator="type"),
 ]
@@ -141,6 +147,7 @@ _KNOWN_TYPES = {
     "life_offer", "accept_offer", "cancel_offer", "react_offer",
     "place_bid", "game_reaction",
     "propose_final_deal", "accept_final_deal", "reject_final_deal",
+    "change_apodo",
 }
 
 _adapter: TypeAdapter[IncomingMessage] = TypeAdapter(IncomingMessage)

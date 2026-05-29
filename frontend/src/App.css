@@ -1534,6 +1534,12 @@
   transform: scale(1.08);
 }
 
+.order-anim-player-card.dealer-glow {
+  border-color: #38bdf8;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.55);
+  transform: scale(1.08);
+}
+
 .order-anim-nick {
   font-size: 13px;
   font-weight: 700;
@@ -1598,6 +1604,38 @@
   letter-spacing: 0.5px;
   box-shadow: 0 2px 6px rgba(251, 191, 36, 0.4);
   animation: bounce 0.6s infinite alternate;
+}
+
+.order-anim-dealer-badge {
+  background: #38bdf8;
+  color: #1e293b;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(56, 189, 248, 0.4);
+  animation: bounce 0.6s infinite alternate;
+}
+
+.start-notice-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #78350f;
+  color: #fef08a;
+  border: 1px solid #eab308;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: bold;
+  z-index: 250;
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  animation: slideDownFade 0.3s ease-out;
 }
 
 .order-anim-banner {
@@ -1976,6 +2014,62 @@
 .bid-input:focus {
   border-color: #fbbf24;
   outline: none;
+}
+
+
+/* ── Auth/Login Forms ─────────────────────────────────── */
+.auth-card {
+  max-width: 420px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.auth-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 12px 0 6px;
+  color: var(--text-h);
+  text-align: center;
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.auth-link {
+  color: var(--accent);
+  cursor: pointer;
+  transition: opacity 0.2s, text-decoration 0.2s;
+  user-select: none;
+}
+
+.auth-link:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+}
+
+.auth-instruction {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: left;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.info-msg {
+  color: #4ade80;
+  font-size: 14px;
+  margin-top: 12px;
+  text-align: center;
+  font-weight: 500;
 }
 
 

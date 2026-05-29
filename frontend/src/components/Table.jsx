@@ -36,13 +36,14 @@ function angleToCSSPosition(angleDeg, radiusX, radiusY) {
 
 // ── Opponent seat ──────────────────────────────────────────────────────
 
-function OpponentSeat({ player, isCurrentTurn, session }) {
+function OpponentSeat({ player, isCurrentTurn, session, apodos = {} }) {
   const lives   = session?.lives?.[player.nickname]  ?? null
   const maxLives = session?.max_lives ?? null
+  const displayName = apodos[player.nickname] || player.nickname
 
   return (
     <div className={`round-seat opponent-seat-r ${isCurrentTurn ? 'current-turn' : ''} ${lives === 0 ? 'eliminated' : ''}`}>
-      <p className="rs-name">{player.nickname}</p>
+      <p className="rs-name">{displayName}</p>
 
       {/* Turn label sits right above this player's cards */}
       {isCurrentTurn && <span className="rs-turn-label">Su turno</span>}
@@ -98,6 +99,7 @@ export default function Table({
   turnTimerMax = 25,
   gameReaction = null,
   sendGameReaction = () => {},
+  apodos = {},
 }) {
   const players       = gameState?.players ?? []
   const currentPlayer = gameState?.current_player
@@ -170,7 +172,7 @@ export default function Table({
     return (
       <div className="live-action-banner-wrapper" style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
         <div className="live-action-banner">
-          <span className="player-name">¡{act.player}</span>
+          <span className="player-name">¡{apodos[act.player] || act.player}</span>
           <span className="action-text">{text}!</span>
         </div>
       </div>
@@ -275,6 +277,7 @@ export default function Table({
           timerMax={showdownTimerMax}
           onRevealHand={onRevealHand}
           session={session}
+          apodos={apodos}
         />
       )}
 
@@ -351,6 +354,7 @@ export default function Table({
                 player={player}
                 isCurrentTurn={nick === currentPlayer}
                 session={session}
+                apodos={apodos}
               />
             </div>
           )
@@ -365,7 +369,7 @@ export default function Table({
 
             <div className="player-header">
               <p className="player-label">
-                {myNick}
+                {apodos[myNick] || myNick}
                 {myData?.is_standing && <span className="standing-badge"> (plantado)</span>}
               </p>
 
@@ -459,7 +463,7 @@ function compareTiebreakers(a = [], b = []) {
   return 0
 }
 
-function ShowdownOverlay({ showdown, myNick, timer, timerMax = 8, onRevealHand, session }) {
+function ShowdownOverlay({ showdown, myNick, timer, timerMax = 8, onRevealHand, session, apodos = {} }) {
   const amLoser    = showdown.losers?.includes(myNick)
   const alreadyRevealed = showdown.revealed?.[myNick] != null
 
@@ -491,12 +495,13 @@ function ShowdownOverlay({ showdown, myNick, timer, timerMax = 8, onRevealHand, 
             const isSafe    = !isLoser
             const revealed  = showdown.revealed?.[ev.nickname]
             const isWinner  = showdown.winners?.includes(ev.nickname)
+            const displayName = apodos[ev.nickname] || ev.nickname
 
             return (
               <div key={ev.nickname} className={`showdown-player-row ${isSafe ? 'safe' : 'loser'} ${isWinner ? 'winner' : ''}`}>
                 <div className="showdown-player-info">
                   <span className="showdown-nick">
-                    {ev.nickname}
+                    {displayName}
                     {isWinner && ' 🏆'}
                     {isSafe && <span className="safe-badge">Salvo</span>}
                     {isLoser && <span className="loser-badge">Pierde vida</span>}

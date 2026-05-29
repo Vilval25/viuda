@@ -39,6 +39,7 @@ class Connection:
     nickname:  str
     role:      Role
     ready:     bool = False   # lobby ready OR inter-round ready
+    apodo:     str = ""
 
 
 @dataclass
@@ -235,6 +236,7 @@ class GameRoom:
     def __init__(self):
         self._connections:  dict[str, Connection] = {}
         self._disconnected: set[str]              = set()
+        self._apodos:       dict[str, str]        = {}  # persistent username -> apodo mapping
         self.phase:   Phase            = Phase.IDLE
         self.config:  LobbyConfig      = LobbyConfig()
         self.session: Optional[GameSession] = None
@@ -274,14 +276,33 @@ class GameRoom:
     # Connection lifecycle
     # ------------------------------------------------------------------
 
-    def connect(self, websocket: WebSocket, nickname: str) -> tuple[bool, str]:
+    def connect(self, websocket: WebSocket, nickname: str, apodo: str = "") -> tuple[bool, str]:
+        # Track/save the apodo persistently
+        if apodo:
+            self._apodos[nickname] = apodo
+        else:
+            self._apodos.setdefault(nickname, nickname)
+        apodo_to_use = self._apodos[nickname]
+
+        # Single-session policy: kick previous connection if active
+        old_role = Role.SPECTATOR
+        old_ready = False
         if nickname in self._connections:
-            return False, "El nickname ya está en uso."
+            old_conn = self._connections.pop(nickname)
+            old_role = old_conn.role
+            old_ready = old_conn.ready
+            try:
+                # Terminate the superseded connection cleanly and asynchronously
+                asyncio.create_task(old_conn.websocket.close(code=4000, reason="session_superseded"))
+            except Exception:
+                pass
+
         if nickname in self._disconnected:
             self._disconnected.discard(nickname)
-            self._connections[nickname] = Connection(websocket, nickname, Role.PLAYING)
+            self._connections[nickname] = Connection(websocket, nickname, Role.PLAYING, ready=old_ready, apodo=apodo_to_use)
             return True, ""
-        self._connections[nickname] = Connection(websocket, nickname, Role.SPECTATOR)
+
+        self._connections[nickname] = Connection(websocket, nickname, old_role, ready=old_ready, apodo=apodo_to_use)
         return True, ""
 
     def disconnect(self, nickname: str) -> None:
@@ -468,6 +489,7 @@ class GameRoom:
             "config":       self.config.to_dict(),
             "session":      self.session.to_dict() if self.session else None,
             "sheets_url":   sheets.sheets_url(),
+            "apodos":       self._apodos,
             # Background-music sync: shared reference epoch + the server's
             # current time, so each client can correct for clock skew.
             "music_epoch":  MUSIC_EPOCH,

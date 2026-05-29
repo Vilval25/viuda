@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import Card, { CardBack } from './Card'
 
-export default function OrderDeterminationAnimation({ data, onFinish, playEffect }) {
+export default function OrderDeterminationAnimation({ data, onFinish, playEffect, apodos = {} }) {
   // data has { type: "order_result", order_cards: { nick: card }, play_order: [nick1, nick2...] }
   const { order_cards, play_order } = data
   const players = Object.keys(order_cards)
@@ -13,7 +13,8 @@ export default function OrderDeterminationAnimation({ data, onFinish, playEffect
   const [revealedMap, setRevealedMap] = useState({})   // player -> boolean (is card flipped?)
   const [highlightedWinner, setHighlightedWinner] = useState(null)
 
-  const winner = play_order[0] // first in play_order is the round starter (highest card)
+  const dealer = play_order[play_order.length - 1] // last in play_order is the dealer (highest card)
+  const winner = play_order[0] // first in play_order is the round starter (left of dealer)
 
   useEffect(() => {
     // Start dealing animation immediately on mount
@@ -45,7 +46,7 @@ export default function OrderDeterminationAnimation({ data, onFinish, playEffect
     }, winnerHighlightDelay)
 
     // Complete the animation and transition to board
-    const finishDelay = winnerHighlightDelay + 2500
+    const finishDelay = winnerHighlightDelay + 3000
     setTimeout(() => {
       setPhase('done')
       onFinish()
@@ -60,7 +61,7 @@ export default function OrderDeterminationAnimation({ data, onFinish, playEffect
           <span className="sparkle">✨</span> Determinando Orden de Turnos <span className="sparkle">✨</span>
         </h2>
         <p className="order-anim-subtitle">
-          Se reparte una carta alta a cada jugador. ¡La carta más alta empieza!
+          Se reparte una carta alta a cada jugador para definir quién reparte. ¡El jugador a la izquierda de la carta más alta empieza!
         </p>
 
         <div className="order-anim-players-grid">
@@ -69,13 +70,15 @@ export default function OrderDeterminationAnimation({ data, onFinish, playEffect
             const isFlipped = revealedMap[nick]
             const cardData = order_cards[nick]
             const isWinner = highlightedWinner === nick
+            const isDealer = phase === 'winner_highlight' && dealer === nick
+            const displayName = apodos[nick] || nick
 
             return (
               <div 
                 key={nick} 
-                className={`order-anim-player-card ${isWinner ? 'winner-glow' : ''} ${hasDealt ? 'card-entered' : 'card-hidden'}`}
+                className={`order-anim-player-card ${isWinner ? 'winner-glow' : ''} ${isDealer ? 'dealer-glow' : ''} ${hasDealt ? 'card-entered' : 'card-hidden'}`}
               >
-                <div className="order-anim-nick">{nick}</div>
+                <div className="order-anim-nick">{displayName}</div>
                 
                 <div className="order-anim-card-slot">
                   {hasDealt ? (
@@ -92,6 +95,12 @@ export default function OrderDeterminationAnimation({ data, onFinish, playEffect
                   )}
                 </div>
 
+                {isDealer && (
+                  <div className="order-anim-dealer-badge">
+                    🔔 REPARTIDOR
+                  </div>
+                )}
+
                 {isWinner && phase === 'winner_highlight' && (
                   <div className="order-anim-winner-badge">
                     👑 EMPIEZA
@@ -102,9 +111,9 @@ export default function OrderDeterminationAnimation({ data, onFinish, playEffect
           })}
         </div>
 
-        {phase === 'winner_highlight' && winner && (
+        {phase === 'winner_highlight' && winner && dealer && (
           <div className="order-anim-banner">
-            👑 <strong className="winner-highlight-text">{winner}</strong> saca la carta más alta ({order_cards[winner]?.rank}) y comienza la partida 👑
+            👑 <strong className="winner-highlight-text">{apodos[dealer] || dealer}</strong> saca la carta más alta ({order_cards[dealer]?.rank}) y reparte. ¡Empieza <strong>{apodos[winner] || winner}</strong> a su izquierda! 👑
           </div>
         )}
       </div>

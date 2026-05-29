@@ -11,6 +11,7 @@ export function useGameSocket() {
   const [roomState, setRoomState]             = useState({
     waiting: [], playing: [], spectators: [], disconnected: [],
     phase: 'idle', ready: [], config: { buy_in: 10, max_lives: 3 }, session: null,
+    apodos: {},
   })
   const [error, setError]                     = useState('')
   const [lastPong, setLastPong]               = useState(null)
@@ -254,17 +255,21 @@ export function useGameSocket() {
   }, [])
 
   // ── Connection ───────────────────────────────────────────────────────
-  const connect = useCallback((nickname) => {
-    if (!nickname.trim()) return
+  const connect = useCallback((username, apodo) => {
+    if (!username.trim()) return
     setError('')
-    setMyNick(nickname.trim())
+    setMyNick(username.trim())
 
     const socket = new WebSocket(WS_URL)
-    socket.onopen    = () => send_raw(socket, 'join', { nickname: nickname.trim() })
+    socket.onopen    = () => send_raw(socket, 'join', { nickname: username.trim(), apodo: apodo.trim() })
     socket.onmessage = handleMessage
-    socket.onclose   = () => {
+    socket.onclose   = (event) => {
       if (wsRef.current) {
-        setError('Conexión cerrada por el servidor.')
+        if (event.code === 4000 && event.reason === 'session_superseded') {
+          setError('Tu sesión ha sido iniciada en otra pestaña.')
+        } else {
+          setError('Conexión cerrada por el servidor.')
+        }
         setScreen('nick_form')
         wsRef.current = null
         _clearShowdownInterval()
@@ -336,6 +341,9 @@ export function useGameSocket() {
   const sendGameReaction = useCallback((emoji) =>
     send('game_reaction', { emoji }), [send])
 
+  const changeApodo = useCallback((newApodo) =>
+    send('change_apodo', { apodo: newApodo }), [send])
+
   // ── Derived state ────────────────────────────────────────────────────
   const myRole = roomState.waiting.includes(myNick)  ? 'waiting'
     : roomState.playing.includes(myNick)             ? 'playing'
@@ -355,7 +363,7 @@ export function useGameSocket() {
     soundEvent,
     orderResult, setOrderResult,
     gameReaction,
-    connect, send,
+    connect, send, changeApodo,
     joinGame, leaveGame, startGame, ping,
     setReady, setUnready, setConfig,
     swapAll, swapOne, passTurn, stand, newGame,

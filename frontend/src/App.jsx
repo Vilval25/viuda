@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGameSocket } from './hooks/useGameSocket'
 import { useSound }      from './hooks/useSound'
 import NickForm      from './components/NickForm'
@@ -12,6 +12,7 @@ import './App.css'
 function App() {
   const socket = useGameSocket()
   const sound  = useSound()
+  const [startNotice, setStartNotice] = useState(null)
 
   // ── Sound effects: play whatever the server broadcasts ───────────────
   // Effects are server-driven so every player in the room hears the same
@@ -54,6 +55,31 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hand])
 
+  // Turn announcement toast for subsequent rounds (Ronda 2+)
+  const orderResult = socket.orderResult
+  const setOrderResult = socket.setOrderResult
+  useEffect(() => {
+    if (orderResult) {
+      if (roundNumber > 1) {
+        const starter = orderResult.play_order[0]
+        const apodo = socket.roomState.apodos?.[starter] || starter
+        setStartNotice(apodo)
+        setOrderResult(null) // suppress animation overlay
+        playEffect('new_offer')
+      }
+    }
+  }, [orderResult, roundNumber, setOrderResult, playEffect, socket.roomState.apodos])
+
+  // Separate effect to auto-clear the turn announcement after 3 seconds
+  useEffect(() => {
+    if (startNotice) {
+      const timer = setTimeout(() => {
+        setStartNotice(null)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [startNotice])
+
   let screenEl = null
 
   if (socket.screen === 'nick_form') {
@@ -71,6 +97,7 @@ function App() {
         setUnready={socket.setUnready}
         setConfig={socket.setConfig}
         amReady={socket.amReady}
+        changeApodo={socket.changeApodo}
       />
     )
   } else if (socket.screen === 'in_game') {
@@ -100,6 +127,7 @@ function App() {
         turnTimerMax={socket.turnTimerMax}
         gameReaction={socket.gameReaction}
         sendGameReaction={socket.sendGameReaction}
+        apodos={socket.roomState.apodos}
       />
     )
   } else if (socket.screen === 'inter_round') {
@@ -119,6 +147,8 @@ function App() {
         rejectFinalDeal={socket.rejectFinalDeal}
         onInterReady={socket.interReady}
         onInterUnready={socket.interUnready}
+        changeApodo={socket.changeApodo}
+        apodos={socket.roomState.apodos}
       />
     )
   }
@@ -126,11 +156,17 @@ function App() {
   return (
     <>
       {screenEl}
-      {socket.orderResult && (
+      {startNotice && (
+        <div className="start-notice-toast">
+          👑 ¡La ronda {roundNumber} comienza! Turno de <strong>{startNotice}</strong> 🃏
+        </div>
+      )}
+      {socket.orderResult && (roundNumber === 1 || !roundNumber) && (
         <OrderDeterminationAnimation 
           data={socket.orderResult}
           onFinish={() => socket.setOrderResult(null)}
           playEffect={sound.playEffect}
+          apodos={socket.roomState.apodos}
         />
       )}
       <SoundControls sound={sound} />

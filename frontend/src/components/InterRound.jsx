@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 export default function InterRound({
   myNick,
   session,
+  apodos = {},
+  changeApodo,
   error = '',
   tradeNotice = '',
   postLifeOffer,
@@ -21,6 +23,8 @@ export default function InterRound({
   const [offerPrice,  setOfferPrice]  = useState('')
   const [offerTarget, setOfferTarget] = useState('')
   const [dealShare,   setDealShare]   = useState('')
+  const [showChangeApodo, setShowChangeApodo] = useState(false)
+  const [newApodoVal, setNewApodoVal] = useState('')
 
   if (!session) return null
 
@@ -33,15 +37,11 @@ export default function InterRound({
   const allPlayers = Object.keys(lives)
   const myLives    = lives[myNick] ?? 0
   const isAlive    = myLives > 0
-  // A spectator never joined the game, so is not a key in `lives`.
-  // Eliminated players (lives === 0) are still participants.
   const isParticipant = allPlayers.includes(myNick)
   const amReady    = inter_ready.includes(myNick)
   const showFinalDeal = alive.length === 2 && isAlive
 
-  // Alive players can sell or buy; eliminated players can only buy.
   const canSell = myLives > 0
-
   const isDirected = offerType === 'direct_sell' || offerType === 'direct_buy'
   const isSell     = offerType === 'public_sell' || offerType === 'direct_sell' || offerType === 'public_auction'
 
@@ -56,11 +56,10 @@ export default function InterRound({
     setOfferAmount('1')
   }
 
-  // Action wrappers. (No dedicated sound effects for these yet — playEffect
-  // is a no-op for unknown keys, kept here for when assets are added.)
   function handleAcceptOffer(id) {
     acceptOffer(id)
   }
+  
   function handleReactOffer(id, emoji) {
     reactOffer(id, emoji)
   }
@@ -71,35 +70,107 @@ export default function InterRound({
     setDealShare('')
   }
 
+  function handleUpdateApodo(e) {
+    e.preventDefault()
+    if (newApodoVal.trim()) {
+      changeApodo(newApodoVal.trim())
+      setShowChangeApodo(false)
+      setNewApodoVal('')
+    }
+  }
+
   const myOffers     = life_offers.filter(o => o.from_nick === myNick)
-  // All other offers are visible to everyone (including directed ones);
-  // whether the local player can *accept* is decided per-offer below.
   const othersOffers = life_offers.filter(o => o.from_nick !== myNick)
 
-  // Can the local player accept this offer?
   function canAcceptOffer(o) {
     if (!isParticipant) return false
     const directed = o.offer_type === 'direct_sell' || o.offer_type === 'direct_buy'
-    // Directed offers are only acceptable by their target.
     if (directed && o.target_nick !== myNick) return false
     const isSellOffer = o.offer_type === 'public_sell' || o.offer_type === 'direct_sell'
     if (isSellOffer) {
-      // Offerer sells -> I buy: I must not exceed the life cap.
       return myLives + o.amount <= max_lives
     }
-    // Buy offer: offerer buys -> I sell: I must have enough lives.
     return myLives >= o.amount
   }
 
   return (
     <div className="inter-round-layout">
-      <div className="inter-round-header">
+      <div className="inter-round-header" style={{ position: 'relative' }}>
         <h2>Entre rondas — Ronda {round_number}</h2>
+        <div className="ir-my-info" style={{ margin: '5px 0 10px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: '14px', color: 'var(--text)' }}>
+            Jugando como: <strong>{apodos[myNick] || myNick}</strong> <span style={{ opacity: 0.6, fontSize: '12px' }}>({myNick})</span>
+          </span>
+          {isAlive && (
+            <button
+              type="button"
+              className="btn-change-apodo-sm"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                fontSize: '12px',
+                textDecoration: 'underline',
+                padding: 0
+              }}
+              onClick={() => {
+                setNewApodoVal(apodos[myNick] || myNick)
+                setShowChangeApodo(true)
+              }}
+            >
+              ✏️ Editar Apodo
+            </button>
+          )}
+        </div>
         <p className="inter-pot">Pozo: <strong>S/. {Number(pot).toFixed(2)}</strong></p>
       </div>
 
       {error && <div className="game-error-toast">{error}</div>}
       {tradeNotice && <div className="trade-notice-toast">{tradeNotice}</div>}
+
+      {showChangeApodo && (
+        <div className="change-apodo-modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div className="card change-apodo-card" style={{ maxWidth: '350px', width: '90%', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 10px 0' }}>Editar Apodo</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text)', opacity: 0.8, margin: '0 0 15px 0' }}>
+              Este nombre será visible para todos en la mesa de juego.
+            </p>
+            <form onSubmit={handleUpdateApodo}>
+              <input
+                type="text"
+                className="nick-input"
+                placeholder="Tu nuevo apodo"
+                value={newApodoVal}
+                onChange={e => setNewApodoVal(e.target.value)}
+                maxLength={15}
+                required
+                autoFocus
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+              <div className="modal-buttons" style={{ display: 'flex', gap: '10px', marginTop: '15px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowChangeApodo(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Player status grid ──────────────────────────── */}
       <div className="ir-section">
@@ -109,10 +180,11 @@ export default function InterRound({
             const v      = lives[nick] ?? 0
             const bal    = balances[nick] ?? 0
             const ready  = inter_ready.includes(nick)
+            const displayName = apodos[nick] || nick
             return (
               <div key={nick} className={`ir-player-card ${v <= 0 ? 'eliminated' : ''} ${nick === myNick ? 'me' : ''}`}>
                 <p className="ir-nick">
-                  {nick === myNick ? `${nick} (tú)` : nick}
+                  {nick === myNick ? `${displayName} (tú)` : displayName}
                   {ready && <span className="ready-dot"> ✓</span>}
                 </p>
                 <p className="ir-lives">
@@ -137,7 +209,7 @@ export default function InterRound({
           {final_deal ? (
             <div className="fd-pending">
               <p>
-                <strong>{final_deal.proposer}</strong> propone:{' '}
+                <strong>{apodos[final_deal.proposer] || final_deal.proposer}</strong> propone:{' '}
                 queda con <strong>S/. {Number(final_deal.my_share).toFixed(2)}</strong>,
                 el otro recibe <strong>S/. {(Number(final_deal.pot) - Number(final_deal.my_share)).toFixed(2)}</strong>.
               </p>
@@ -147,7 +219,7 @@ export default function InterRound({
                   <button className="btn-danger"  onClick={rejectFinalDeal}>Rechazar</button>
                 </div>
               ) : (
-                <p className="ir-hint">Esperando respuesta de {alive.find(n => n !== myNick)}…</p>
+                <p className="ir-hint">Esperando respuesta de {apodos[alive.find(n => n !== myNick)] || alive.find(n => n !== myNick)}…</p>
               )}
             </div>
           ) : (
@@ -210,7 +282,7 @@ export default function InterRound({
               >
                 <option value="">Destinatario</option>
                 {allPlayers.filter(n => n !== myNick).map(n => (
-                  <option key={n} value={n}>{n} ({lives[n] ?? 0} vidas)</option>
+                  <option key={n} value={n}>{apodos[n] || n} ({lives[n] ?? 0} vidas)</option>
                 ))}
               </select>
             )}
@@ -230,7 +302,7 @@ export default function InterRound({
             {myOffers.map(o => (
               <div key={o.id} className="offer-card my-offer">
                 <div className="offer-row">
-                  <span className="offer-label">{offerLabel(o, myNick)}</span>
+                  <span className="offer-label">{offerLabel(o, myNick, apodos)}</span>
                   <span className="offer-row-end">
                     <OfferCountdown expiresAt={o.expires_at} />
                     <button className="btn-danger btn-sm" onClick={() => cancelOffer(o.id)}>Cancelar</button>
@@ -241,7 +313,7 @@ export default function InterRound({
                     <span className="auction-badge">🔨 SUBASTA</span>
                     {o.highest_bidder ? (
                       <span className="highest-bidder">
-                        Líder actual: <strong>{o.highest_bidder === myNick ? 'Tú 👑' : o.highest_bidder}</strong>
+                        Líder actual: <strong>{o.highest_bidder === myNick ? 'Tú 👑' : (apodos[o.highest_bidder] || o.highest_bidder)}</strong>
                       </span>
                     ) : (
                       <span className="highest-bidder no-bids">Sin pujas aún</span>
@@ -249,7 +321,7 @@ export default function InterRound({
                   </div>
                 )}
                 <OfferReactions
-                  offer={o} myNick={myNick}
+                  offer={o} myNick={myNick} apodos={apodos}
                   canReact={isParticipant} onReact={handleReactOffer}
                 />
               </div>
@@ -266,7 +338,7 @@ export default function InterRound({
               return (
                 <div key={o.id} className="offer-card">
                   <div className="offer-row">
-                    <span className="offer-label">{offerLabel(o, myNick)}</span>
+                    <span className="offer-label">{offerLabel(o, myNick, apodos)}</span>
                     <span className="offer-row-end">
                       <OfferCountdown expiresAt={o.expires_at} />
                       {canAcceptOffer(o) && !isAuction && (
@@ -279,7 +351,7 @@ export default function InterRound({
                       <span className="auction-badge">🔨 SUBASTA</span>
                       {o.highest_bidder ? (
                         <span className="highest-bidder">
-                          Líder actual: <strong>{o.highest_bidder === myNick ? 'Tú 👑' : o.highest_bidder}</strong>
+                          Líder actual: <strong>{o.highest_bidder === myNick ? 'Tú 👑' : (apodos[o.highest_bidder] || o.highest_bidder)}</strong>
                         </span>
                       ) : (
                         <span className="highest-bidder no-bids">Sin pujas aún</span>
@@ -309,7 +381,7 @@ export default function InterRound({
                     </div>
                   )}
                   <OfferReactions
-                    offer={o} myNick={myNick}
+                    offer={o} myNick={myNick} apodos={apodos}
                     canReact={isParticipant} onReact={handleReactOffer}
                   />
                 </div>
@@ -349,10 +421,8 @@ export default function InterRound({
   )
 }
 
-// Fixed set of reaction emojis (must match ALLOWED_REACTIONS on the server).
 const REACTION_EMOJIS = ['👍', '👎', '😂', '😮', '🔥', '🤔']
 
-// Live countdown to an offer's expiry (expires_at is a Unix timestamp).
 function OfferCountdown({ expiresAt }) {
   const compute = () => Math.max(0, Math.ceil(expiresAt - Date.now() / 1000))
   const [secs, setSecs] = useState(compute)
@@ -361,7 +431,6 @@ function OfferCountdown({ expiresAt }) {
     setSecs(compute())
     const id = setInterval(() => setSecs(compute()), 500)
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expiresAt])
 
   if (!expiresAt) return null
@@ -372,7 +441,7 @@ function OfferCountdown({ expiresAt }) {
   )
 }
 
-function OfferReactions({ offer, myNick, canReact, onReact }) {
+function OfferReactions({ offer, myNick, apodos = {}, canReact, onReact }) {
   const reactions = offer.reactions ?? {}
   return (
     <div className="offer-reactions">
@@ -387,7 +456,7 @@ function OfferReactions({ offer, myNick, canReact, onReact }) {
             className={`reaction-chip ${mine ? 'mine' : ''} ${count === 0 ? 'empty' : ''}`}
             disabled={!canReact}
             onClick={() => canReact && onReact(offer.id, emoji)}
-            title={count > 0 ? users.join(', ') : 'Reaccionar'}
+            title={count > 0 ? users.map(u => apodos[u] || u).join(', ') : 'Reaccionar'}
           >
             <span className="reaction-emoji">{emoji}</span>
             {count > 0 && <span className="reaction-count">{count}</span>}
@@ -398,10 +467,13 @@ function OfferReactions({ offer, myNick, canReact, onReact }) {
   )
 }
 
-function offerLabel(o, myNick) {
+function offerLabel(o, myNick, apodos = {}) {
   const price  = Number(o.price).toFixed(2)
   const amount = o.amount === 1 ? '1 vida' : `${o.amount} vidas`
-  const who    = (n) => (n === myNick ? 'tú' : n)
+  const who    = (n) => {
+    const name = apodos[n] || n
+    return n === myNick ? 'tú' : name
+  }
   if (o.offer_type === 'public_sell')
     return `${who(o.from_nick)} vende ${amount} → S/. ${price}`
   if (o.offer_type === 'public_buy')

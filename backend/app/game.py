@@ -5,6 +5,7 @@ Phases:
   ORDER_DETERMINATION → PLAYING → SHOWDOWN → FINISHED
 """
 import random
+import time
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
@@ -214,12 +215,21 @@ class Game:
             order_cards[nick] = deck[i]
         self.order_cards = order_cards
 
-        # Sort descending by high value; ties broken randomly
-        self._order = sorted(
+        # Sort descending by high value; ties broken randomly.
+        # The player with the highest card is the dealer.
+        sorted_players = sorted(
             self._all_players,
             key=lambda n: (order_cards[n].high_value, random.random()),
             reverse=True,
         )
+        
+        # The player to the left of the dealer starts. Since sorted_players is
+        # sorted in clockwise order starting from the dealer, index 1 is to the
+        # left of the dealer. We rotate by 1 to the left so that index 1 becomes index 0.
+        if len(sorted_players) > 1:
+            self._order = sorted_players[1:] + sorted_players[:1]
+        else:
+            self._order = sorted_players
 
     # ── Phase 1: dealing ──────────────────────────────────────────
 
@@ -341,6 +351,7 @@ class Game:
             {taken_slot: table_card} if taken_slot is not None else {}
         )
         self.last_action = {"player": nickname, "action": "swap_one"}
+        self._last_swap_timestamp = time.time()
         self._advance()
         return True, ""
 

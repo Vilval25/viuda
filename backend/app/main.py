@@ -19,7 +19,7 @@ from app.protocol import (
     LifeOfferMsg, AcceptOfferMsg, CancelOfferMsg, ReactOfferMsg,
     PlaceBidMsg, GameReactionMsg,
     ProposeFinalDealMsg, AcceptFinalDealMsg, RejectFinalDealMsg,
-    PongMsg, ErrorMsg,
+    PongMsg, ErrorMsg, ChangeApodoMsg,
 )
 
 app = FastAPI()
@@ -367,6 +367,16 @@ async def handle_swap_all(nickname: str, _msg: SwapAllMsg, ws: WebSocket) -> Non
         await _after_action(g)
 
 
+async def _clear_taken_ghost_after_delay(game_id: int, swap_time: float) -> None:
+    """Sleep for 3 seconds then clear the ghost cards if no other swap occurred."""
+    await asyncio.sleep(3.0)
+    g = room.game
+    if g is not None and id(g) == game_id:
+        if getattr(g, "_last_swap_timestamp", 0.0) == swap_time:
+            g._last_taken_by_slot = {}
+            await _broadcast_game()
+
+
 async def handle_swap_one(nickname: str, msg: SwapOneMsg, ws: WebSocket) -> None:
     g = room.game
     if g is None:
@@ -377,6 +387,9 @@ async def handle_swap_one(nickname: str, msg: SwapOneMsg, ws: WebSocket) -> None
     else:
         await _broadcast_sound('swap_one')
         await _after_action(g)
+        # Clear the ghost shadow after 3 seconds
+        swap_time = getattr(g, "_last_swap_timestamp", 0.0)
+        asyncio.create_task(_clear_taken_ghost_after_delay(id(g), swap_time))
 
 
 async def handle_pass_turn(nickname: str, _msg: PassTurnMsg, ws: WebSocket) -> None:
@@ -767,6 +780,12 @@ async def handle_place_bid(nickname: str, msg: PlaceBidMsg, ws: WebSocket) -> No
 
     offer.price = round(msg.bid_price, 2)
     offer.highest_bidder = nickname
+    
+    # Reset/restart the expiration countdown timer for this auction offer
+    _cancel_offer_expiry(offer.id)
+    offer.expires_at = time.time() + OFFER_TTL_SECONDS
+    _offer_expiry_tasks[offer.id] = asyncio.create_task(_expire_offer(offer.id))
+
     await _broadcast_sound('new_offer')
     await room.broadcast_room_state()
 
@@ -834,9 +853,42 @@ async def handle_reject_final_deal(nickname: str, _msg: RejectFinalDealMsg, ws: 
     await room.broadcast_room_state()
 
 
+async def handle_change_apodo(nickname: str, msg: ChangeApodoMsg, ws: WebSocket) -> None:
+    conn = room._connections.get(nickname)
+    if not conn:
+        await ws.send_text(ErrorMsg(message="Conexión no encontrada.").model_dump_json())
+        return
+
+    # User can only change nickname in lobby (idle) or between rounds
+    if room.phase not in (Phase.IDLE, Phase.INTER_ROUND):
+        await ws.send_text(ErrorMsg(message="No puedes cambiar tu apodo en plena partida.").model_dump_json())
+        return
+
+    new_apodo = msg.apodo.strip()
+    if not new_apodo:
+        await ws.send_text(ErrorMsg(message="El apodo no puede estar vacío.").model_dump_json())
+        return
+
+    if len(new_apodo) > 15:
+        await ws.send_text(ErrorMsg(message="El apodo no puede superar los 15 caracteres.").model_dump_json())
+        return
+
+    # Update in memory
+    conn.apodo = new_apodo
+    room._apodos[nickname] = new_apodo
+
+    # Update in sheets (background)
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, sheets.update_user_apodo, nickname, new_apodo)
+
+    # Broadcast new room state
+    await room.broadcast_room_state()
+
+
 # ── Handler registry ───────────────────────────────────────────────────
 
 HANDLERS: dict = {
+    "change_apodo":       handle_change_apodo,
     "join_game":          handle_join_game,
     "leave_game":         handle_leave_game,
     "set_config":         handle_set_config,
@@ -864,6 +916,39 @@ HANDLERS: dict = {
 }
 
 
+# ── User HTTP Endpoints ────────────────────────────────────────────────
+
+from pydantic import BaseModel
+
+class UserAuthMsg(BaseModel):
+    username: str
+    password: str
+
+class ApodoUpdateMsg(BaseModel):
+    username: str
+    apodo: str
+
+@app.post("/api/register")
+def api_register(data: UserAuthMsg):
+    success, msg = sheets.register_user(data.username, data.password)
+    return {"success": success, "message": msg}
+
+@app.post("/api/login")
+def api_login(data: UserAuthMsg):
+    success, msg, apodo = sheets.login_user(data.username, data.password)
+    return {"success": success, "message": msg, "apodo": apodo}
+
+@app.post("/api/change-password")
+def api_change_password(data: UserAuthMsg):
+    success, msg = sheets.change_password(data.username, data.password)
+    return {"success": success, "message": msg}
+
+@app.post("/api/update-apodo")
+def api_update_apodo(data: ApodoUpdateMsg):
+    success = sheets.update_user_apodo(data.username, data.apodo)
+    return {"success": success}
+
+
 # ── WebSocket endpoint ─────────────────────────────────────────────────
 
 @app.websocket("/ws")
@@ -886,7 +971,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         return
 
     nickname = msg.nickname.strip()
-    ok, error = room.connect(websocket, nickname)
+    apodo = getattr(msg, "apodo", "").strip() if getattr(msg, "apodo", None) else ""
+    ok, error = room.connect(websocket, nickname, apodo=apodo)
     if not ok:
         await websocket.send_text(ErrorMsg(message=error).model_dump_json())
         await websocket.close()
